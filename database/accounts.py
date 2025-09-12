@@ -1,57 +1,88 @@
-def generate_create_account_query(sonolus_id: int) -> str:
-    # The 'created_at' and 'updated_at' fields are automatically set to CURRENT_TIMESTAMP by default
-    return f"""
+from typing import Tuple
+
+
+def generate_create_account_query(sonolus_id: int) -> Tuple[str, Tuple]:
+    return """
         INSERT INTO accounts (sonolus_id)
-        VALUES (
-            {sonolus_id}
-        );
-    """
+        VALUES ($1);
+    """, (
+        sonolus_id,
+    )
 
 
-def generate_delete_account_query(sonolus_id: int) -> str:
-    return f"""
+def generate_delete_account_query(
+    sonolus_id: int, confirm_change: bool = False
+) -> Tuple[str, Tuple]:
+    if not confirm_change:
+        raise ValueError(
+            "Deletion not confirmed. Ensure you are deleting the old files from S3 to ensure there is no hanging files."
+        )
+    return """
         DELETE FROM accounts
-        WHERE sonolus_id = {sonolus_id};
-    """
+        WHERE sonolus_id = $1;
+    """, (
+        sonolus_id,
+    )
 
 
-def generate_link_discord_id_query(sonolus_id: int, discord_id: int) -> str:
-    return f"""
+def generate_link_discord_id_query(
+    sonolus_id: int, discord_id: int
+) -> Tuple[str, Tuple]:
+    return """
         UPDATE accounts
-        SET discord_id = {discord_id}, updated_at = CURRENT_TIMESTAMP
-        WHERE sonolus_id = {sonolus_id};
-    """
+        SET discord_id = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE sonolus_id = $2;
+    """, (
+        discord_id,
+        sonolus_id,
+    )
 
 
-def generate_link_patreon_id_query(sonolus_id: int, patreon_id: str) -> str:
-    return f"""
+def generate_link_patreon_id_query(
+    sonolus_id: int, patreon_id: str
+) -> Tuple[str, Tuple]:
+    return """
         UPDATE accounts
-        SET patreon_id = '{patreon_id}', updated_at = CURRENT_TIMESTAMP
-        WHERE sonolus_id = {sonolus_id};
-    """
+        SET patreon_id = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE sonolus_id = $2;
+    """, (
+        patreon_id,
+        sonolus_id,
+    )
 
 
-def generate_set_mod_query(sonolus_id: int, mod_status: bool) -> str:
-    return f"""
+def generate_set_mod_query(sonolus_id: int, mod_status: bool) -> Tuple[str, Tuple]:
+    return """
         UPDATE accounts
-        SET mod = {str(mod_status).lower()}, updated_at = CURRENT_TIMESTAMP
-        WHERE sonolus_id = {sonolus_id};
-    """
+        SET mod = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE sonolus_id = $2;
+    """, (
+        str(mod_status).lower(),
+        sonolus_id,
+    )
 
 
-def generate_set_banned_query(sonolus_id: int, banned_status: bool) -> str:
-    return f"""
+def generate_set_banned_query(
+    sonolus_id: int, banned_status: bool
+) -> Tuple[str, Tuple]:
+    return """
         UPDATE accounts
-        SET banned = {str(banned_status).lower()}, updated_at = CURRENT_TIMESTAMP
-        WHERE sonolus_id = {sonolus_id};
-    """
+        SET banned = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE sonolus_id = $2;
+    """, (
+        str(banned_status).lower(),
+        sonolus_id,
+    )
 
 
 def generate_update_chart_upload_cooldown_query(
     sonolus_id: int, cooldown_timestamp: str
-) -> str:
-    return f"""
+) -> Tuple[str, Tuple]:
+    return """
         UPDATE accounts
-        SET chart_upload_cooldown = '{cooldown_timestamp}', updated_at = CURRENT_TIMESTAMP
-        WHERE sonolus_id = {sonolus_id};
-    """
+        SET chart_upload_cooldown = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE sonolus_id = $2;
+    """, (
+        cooldown_timestamp,
+        sonolus_id,
+    )
