@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+pyyaml
+git+https://github.com/YumYummity/pjsekai-background-gen-pillow-upd
+asyncpg
+aioboto3
+authlib
