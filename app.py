@@ -14,11 +14,12 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+from pydantic import ValidationError
 import uvicorn
 import aioboto3
 import asyncpg
 
-debug = False
+debug = True
 
 
 class ChartFastAPI(FastAPI):
@@ -40,11 +41,14 @@ class ChartFastAPI(FastAPI):
         }
         self.s3_bucket = config["s3"]["bucket-name"]
 
+        self.auth = config["server"]["auth"]
+        self.auth_header = config["server"]["auth-header"]
+
         self.db: asyncpg.Pool | None = None
 
         self.exception_handlers.setdefault(HTTPException, self.http_exception_handler)
 
-    async def setup(self):
+    async def initdb(self):
         psql_config = self.config["psql"]
 
         self.db = await asyncpg.create_pool(
@@ -55,6 +59,7 @@ class ChartFastAPI(FastAPI):
             port=psql_config["port"],
             min_size=psql_config["pool-min-size"],
             max_size=psql_config["pool-max-size"],
+            ssl="disable",  # XXX: todo, im lazy :(
         )
 
     async def run_blocking(self, func, *args, **kwargs):
@@ -63,12 +68,20 @@ class ChartFastAPI(FastAPI):
         )
 
     async def http_exception_handler(self, request: Request, exc: HTTPException):
-        if exc.status_code < 500:
+        if exc.status_code < 500 and exc.status_code != 422:
             return JSONResponse(
                 content={"message": exc.detail}, status_code=exc.status_code
             )
+        elif exc.status_code == 422 and not debug:
+            # return actual error for debug lol
+            return JSONResponse(
+                content={"message": "Bad request. This is probably not your fault."},
+                status_code=400,
+            )
         else:
-            return JSONResponse(status_code=exc.status_code)
+            if debug:
+                raise exc
+            return JSONResponse(content={}, status_code=exc.status_code)
 
 
 VERSION_REGEX = r"^\d+\.\d+\.\d+$"
@@ -174,7 +187,7 @@ def loadRoutes(folder, cleanup: bool = True):
 
 
 async def startup_event():
-    await app.setup()
+    await app.initdb()
     folder = "api"
     if len(os.listdir(folder)) == 0:
         print("[WARN] No routes loaded.")
@@ -188,7 +201,7 @@ app.add_event_handler("startup", startup_event)
 # uvicorn.run("app:app", port=port, host="0.0.0.0")
 
 
-async def start_fastapi(args):
+async def start_fastapi():
     config_server = uvicorn.Config(
         "app:app",
         host="0.0.0.0",

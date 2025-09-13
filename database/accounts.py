@@ -1,21 +1,137 @@
-from typing import Tuple
+import uuid
+from datetime import datetime, timedelta
+
+from typing import Tuple, Optional
+
+"""
+sonolus_sessions JSONB
+
+{
+    "game": {
+        "1": {"session_key": "same as key", "expires": epoch in ms},
+        "2": ...,
+        "3": ...
+    },
+    "external": {
+        same as above
+    }
+}
+"""
 
 
-def generate_create_account_query(sonolus_id: int) -> Tuple[str, Tuple]:
+def generate_create_account_query(
+    sonolus_id: str, sonolus_handle: int
+) -> Tuple[str, Tuple]:
     return """
-        INSERT INTO accounts (sonolus_id)
-        VALUES ($1);
+        INSERT INTO accounts (sonolus_id, sonolus_handle)
+        VALUES ($1, $2);
     """, (
         sonolus_id,
+        sonolus_handle,
+    )
+
+
+def generate_create_account_if_not_exists_and_new_session_query(
+    sonolus_id: str,
+    sonolus_handle: int,
+    session_type: str,
+    expiry_ms: Optional[int] = 30 * 60 * 1000,
+) -> Tuple[str, Tuple]:
+    if session_type not in ("game", "external"):
+        raise ValueError("invalid session type. must be 'game' or 'external'.")
+
+    session_key = str(uuid.uuid4())
+    expiry_time = int(
+        (datetime.now() + timedelta(milliseconds=expiry_ms)).timestamp() * 1000
+    )
+
+    query = f"""
+    WITH account_creation AS (
+        INSERT INTO accounts (sonolus_id, sonolus_handle, sonolus_sessions)
+        VALUES (
+            $1,
+            $2,
+            jsonb_build_object('game', '{{}}'::jsonb, 'external', '{{}}'::jsonb)
+        )
+        ON CONFLICT (sonolus_id) DO NOTHING
+    ),
+    session_data AS (
+        SELECT sonolus_id, sonolus_sessions
+        FROM accounts
+        WHERE sonolus_id = $1
+    ),
+    slot_to_use AS (
+        SELECT
+            sonolus_id,
+            CASE
+                WHEN sonolus_sessions->'{session_type}'->'1' IS NULL OR
+                     (sonolus_sessions->'{session_type}'->'1'->>'expires')::bigint < extract(epoch from now()) * 1000
+                THEN '1'
+                WHEN sonolus_sessions->'{session_type}'->'2' IS NULL OR
+                     (sonolus_sessions->'{session_type}'->'2'->>'expires')::bigint < extract(epoch from now()) * 1000
+                THEN '2'
+                WHEN sonolus_sessions->'{session_type}'->'3' IS NULL OR
+                     (sonolus_sessions->'{session_type}'->'3'->>'expires')::bigint < extract(epoch from now()) * 1000
+                THEN '3'
+                ELSE (
+                    SELECT key
+                    FROM jsonb_each(sonolus_sessions->'{session_type}') AS t(key, val)
+                    ORDER BY (val->>'expires')::bigint ASC
+                    LIMIT 1
+                )
+            END AS slot
+        FROM session_data
+    )
+    UPDATE accounts a
+    SET sonolus_sessions = jsonb_set(
+        a.sonolus_sessions,
+        array[$3::text, s.slot],
+        jsonb_build_object(
+            'session_key', $4::text,
+            'expires', $5::bigint
+        ),
+        true
+    )
+    FROM slot_to_use s
+    WHERE a.sonolus_id = s.sonolus_id
+    RETURNING $4 AS session_key, $5 AS expires;
+    """
+
+    return query, (
+        sonolus_id,
+        sonolus_handle,
+        session_type,
+        session_key,
+        str(expiry_time),
+    )
+
+
+def generate_get_account_from_session_query(
+    sonolus_id: str, session_key: str, session_type: str
+) -> Tuple[str, Tuple]:
+    return f"""
+        SELECT *
+        FROM accounts
+        WHERE sonolus_id = $1
+          AND EXISTS (
+              SELECT 1
+              FROM jsonb_each(COALESCE(sonolus_sessions->'{session_type}', '{{}}'::jsonb)) AS sessions(slot, data)
+              WHERE data->>'session_key' = $2::text
+                AND (data->>'expires')::bigint > EXTRACT(EPOCH FROM NOW()) * 1000
+          )
+        LIMIT 1;
+    """, (
+        sonolus_id,
+        session_key,
     )
 
 
 def generate_delete_account_query(
-    sonolus_id: int, confirm_change: bool = False
+    sonolus_id: str, confirm_change: bool = False
 ) -> Tuple[str, Tuple]:
     if not confirm_change:
         raise ValueError(
-            "Deletion not confirmed. Ensure you are deleting the old files from S3 to ensure there is no hanging files."
+            "Deletion not confirmed. Ensure you are deleting the old chart files from S3 to ensure there is no hanging files."
         )
     return """
         DELETE FROM accounts
@@ -26,7 +142,7 @@ def generate_delete_account_query(
 
 
 def generate_link_discord_id_query(
-    sonolus_id: int, discord_id: int
+    sonolus_id: str, discord_id: int
 ) -> Tuple[str, Tuple]:
     return """
         UPDATE accounts
@@ -39,7 +155,7 @@ def generate_link_discord_id_query(
 
 
 def generate_link_patreon_id_query(
-    sonolus_id: int, patreon_id: str
+    sonolus_id: str, patreon_id: str
 ) -> Tuple[str, Tuple]:
     return """
         UPDATE accounts
@@ -51,7 +167,7 @@ def generate_link_patreon_id_query(
     )
 
 
-def generate_set_mod_query(sonolus_id: int, mod_status: bool) -> Tuple[str, Tuple]:
+def generate_set_mod_query(sonolus_id: str, mod_status: bool) -> Tuple[str, Tuple]:
     return """
         UPDATE accounts
         SET mod = $1, updated_at = CURRENT_TIMESTAMP
@@ -63,7 +179,7 @@ def generate_set_mod_query(sonolus_id: int, mod_status: bool) -> Tuple[str, Tupl
 
 
 def generate_set_banned_query(
-    sonolus_id: int, banned_status: bool
+    sonolus_id: str, banned_status: bool
 ) -> Tuple[str, Tuple]:
     return """
         UPDATE accounts
@@ -76,7 +192,7 @@ def generate_set_banned_query(
 
 
 def generate_update_chart_upload_cooldown_query(
-    sonolus_id: int, cooldown_timestamp: str
+    sonolus_id: str, cooldown_timestamp: str
 ) -> Tuple[str, Tuple]:
     return """
         UPDATE accounts

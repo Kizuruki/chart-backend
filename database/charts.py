@@ -161,18 +161,22 @@ def generate_update_file_hash_query(
     )
 
 
-def generate_add_like_query(chart_id: str, sonolus_id: int) -> Tuple[str, Tuple]:
+def generate_add_like_query(chart_id: str, sonolus_id: str) -> Tuple[str, Tuple]:
     return """
         UPDATE charts
         SET likes = array_append(likes, $1), updated_at = CURRENT_TIMESTAMP
         WHERE id = $2;
+
+        UPDATE accounts
+        SET previous_likes = array_append(previous_likes, $2)
+        WHERE sonolus_id = $1;
     """, (
         sonolus_id,
         chart_id,
     )
 
 
-def generate_remove_like_query(chart_id: str, sonolus_id: int) -> Tuple[str, Tuple]:
+def generate_remove_like_query(chart_id: str, sonolus_id: str) -> Tuple[str, Tuple]:
     return """
         UPDATE charts
         SET likes = array_remove(likes, $1), updated_at = CURRENT_TIMESTAMP
