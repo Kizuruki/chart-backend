@@ -34,10 +34,6 @@ def setup():
             if result:
                 session_key = result["session_key"]
                 expiry = int(result["expires"])
-                if session_key:
-                    query, args = accounts.generate_get_account_from_session_query(
-                        data.id, session_key, "game"
-                    )
                 return {"session": session_key, "expiry": expiry}
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

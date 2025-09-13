@@ -3,13 +3,13 @@ import uuid
 
 
 def generate_create_chart_query(
-    author: int,
+    author: str,
     title: str,
     artists: str,
+    jacket_hash: str,
+    music_hash: str,
+    chart_hash: str,
     tags: List[str] = [],
-    jacket_hash: str = "",
-    music_hash: str = "",
-    chart_hash: str = "",
     preview_hash: Optional[str] = None,
     background_hash: Optional[str] = None,
 ) -> Tuple[str, Tuple]:
@@ -20,7 +20,8 @@ def generate_create_chart_query(
         INSERT INTO charts (id, author, title, artists, tags, jacket_file_hash, music_file_hash, chart_file_hash, preview_file_hash, background_file_hash, status, created_at, updated_at)
         VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'PRIVATE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-        );
+        )
+        RETURNING id;
     """
 
     return query, (
@@ -36,6 +37,11 @@ def generate_create_chart_query(
         background_hash if background_hash else None,
     )
 
+def generate_get_chart_by_id_query(chart_id: str) -> Tuple[str, Tuple]:
+    query = """
+        SELECT * FROM charts WHERE id = $1;
+    """
+    return query, (chart_id,)
 
 def generate_delete_chart_query(
     chart_id: str, confirm_change: bool = False
