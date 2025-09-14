@@ -13,6 +13,8 @@ from typing import Optional
 
 from pydantic import ValidationError
 
+from core import ChartFastAPI
+
 router = APIRouter()
 
 
@@ -26,6 +28,7 @@ async def main(
     preview_file: Optional[UploadFile] = None,
     background_image: Optional[UploadFile] = None,
 ):
+    app: ChartFastAPI = request.app
     try:
         data: ChartUploadData = ChartUploadData.model_validate_json(data)
     except ValidationError as e:
@@ -36,7 +39,7 @@ async def main(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in."
         )
-    session_data = request.app.decode_key(auth)
+    session_data = app.decode_key(auth)
     if session_data["type"] != "game":  # XXX: switch to external
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token type."
@@ -44,7 +47,7 @@ async def main(
     query, args = accounts.generate_get_account_from_session_query(
         session_data["user_id"], auth, "game"  # XXX: switch to external
     )
-    async with request.app.db.acquire() as conn:
+    async with app.db.acquire() as conn:
         result = await conn.fetchrow(query, *args)
         if not result:
             raise HTTPException(
@@ -64,7 +67,7 @@ async def main(
     MAX_FILE_SIZES = {
         "jacket": 5 * 1024 * 1024,  # 5 MB
         "chart": 10 * 1024 * 1024,  # 10 MB
-        "audio": 25 * 1024 * 1024,  # 20 MB
+        "audio": 25 * 1024 * 1024,  # 25 MB
         "preview": 5 * 1024 * 1024,  # 5 MB
         "background": 10 * 1024 * 1024,  # 10 MB
     }
@@ -162,7 +165,7 @@ async def main(
                 "content-type": "image/png",
             }
         )
-    v1, v3 = await request.app.run_blocking(generate_backgrounds, jacket_bytes)
+    v1, v3 = await app.run_blocking(generate_backgrounds, jacket_bytes)
     v1_hash = calculate_sha1(v1)
     s3_uploads.append(
         {
@@ -181,8 +184,8 @@ async def main(
             "content-type": "image/png",
         }
     )
-    async with request.app.s3_session.resource(**request.app.s3_resource_options) as s3:
-        bucket = await s3.Bucket(request.app.s3_bucket)
+    async with app.s3_session_getter() as s3:
+        bucket = await s3.Bucket(app.s3_bucket)
         tasks = []
         alr_added_hashes = []
         for file in s3_uploads:
@@ -217,7 +220,7 @@ async def main(
         v3_hash=v3_hash,
     )
 
-    async with request.app.db.acquire() as conn:
+    async with app.db.acquire() as conn:
         result = await conn.fetchrow(query, *args)
         if result:
             return {"id": result["id"]}

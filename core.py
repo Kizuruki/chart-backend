@@ -16,11 +16,12 @@ class ChartFastAPI(FastAPI):
 
         self.executor = ThreadPoolExecutor(max_workers=16)
 
-        self.s3_session_getter = lambda: aioboto3.Session(
+        self.s3_session = aioboto3.Session(
             aws_access_key_id=config["s3"]["access-key-id"],
             aws_secret_access_key=config["s3"]["secret-access-key"],
             region_name=config["s3"]["location"],
-        ).client(
+        )
+        self.s3_session_getter = lambda: self.s3_session.client(
             service_name="s3",
             endpoint_url=self.config["s3"]["endpoint"],
         )

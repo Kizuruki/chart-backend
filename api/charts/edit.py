@@ -13,6 +13,8 @@ from helpers.file_checks import get_and_check_file
 
 from pydantic import ValidationError
 
+from core import ChartFastAPI
+
 router = APIRouter()
 
 
@@ -26,6 +28,7 @@ async def main(
     preview_file: Optional[UploadFile] = None,
     background_image: Optional[UploadFile] = None,
 ):
+    app: ChartFastAPI = request.app
     try:
         data: ChartEditData = ChartEditData.model_validate_json(data)
     except ValidationError as e:
@@ -36,7 +39,7 @@ async def main(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in."
         )
-    session_data = request.app.decode_key(auth)
+    session_data = app.decode_key(auth)
     if session_data["type"] != "game":  # XXX: switch to external
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token type."
@@ -44,7 +47,7 @@ async def main(
     query, args = accounts.generate_get_account_from_session_query(
         session_data["user_id"], auth, "game"  # XXX: switch to external
     )
-    async with request.app.db.acquire() as conn:
+    async with app.db.acquire() as conn:
         result = await conn.fetchrow(query, *args)
         if not result:
             raise HTTPException(
@@ -58,13 +61,13 @@ async def main(
     MAX_FILE_SIZES = {
         "jacket": 5 * 1024 * 1024,  # 5 MB
         "chart": 10 * 1024 * 1024,  # 10 MB
-        "audio": 25 * 1024 * 1024,  # 20 MB
+        "audio": 25 * 1024 * 1024,  # 25 MB
         "preview": 5 * 1024 * 1024,  # 5 MB
         "background": 10 * 1024 * 1024,  # 10 MB
     }
 
     query, args = charts.generate_get_chart_by_id_query(data.chart_id)
-    async with request.app.db.acquire() as conn:
+    async with app.db.acquire() as conn:
         result = await conn.fetchrow(query, *args)
         if not result:
             raise HTTPException(status_code=404, detail="Chart not found.")
@@ -134,9 +137,7 @@ async def main(
                     }
                 )
                 old_deletes.append("jacket_file_hash")
-                v1, v3 = await request.app.run_blocking(
-                    generate_backgrounds, jacket_bytes
-                )
+                v1, v3 = await app.run_blocking(generate_backgrounds, jacket_bytes)
                 v1_hash = calculate_sha1(v1)
                 s3_uploads.append(
                     {
@@ -280,10 +281,8 @@ async def main(
     )
     deleted_hashes = deleted_candidate_hashes - kept_hashes
     if deleted_hashes or s3_uploads:
-        async with request.app.s3_session.resource(
-            **request.app.s3_resource_options
-        ) as s3:
-            bucket = await s3.Bucket(request.app.s3_bucket)
+        async with app.s3_session_getter() as s3:
+            bucket = await s3.Bucket(app.s3_bucket)
             tasks = []
             alr_deleted_hashes = []
             for file_hash in deleted_hashes:
@@ -334,7 +333,7 @@ async def main(
         update_none_background=True if data.delete_background else False,
     )
 
-    async with request.app.db.acquire() as conn:
+    async with app.db.acquire() as conn:
         res1 = await conn.execute(query, *args)
         res2 = await conn.execute(query2, *args2)
         print(res1, res2)
