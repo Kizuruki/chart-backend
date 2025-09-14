@@ -1,15 +1,35 @@
 # WARNING: THIS ISN'T IN requirements.txt
 import requests, json
 
-url = "http://localhost:39000/api/charts/upload/"
+url = "http://localhost:39000/api/charts/edit/"
 
+"""
+class ChartEditData(BaseModel):
+    chart_id: str
+
+    author: Optional[str] = None
+    rating: Optional[int] = None
+    title: Optional[str] = None
+    artists: Optional[str] = None
+    description: Optional[str] = None
+    tags: Optional[List[str]] = []
+
+    # files
+    includes_background: Optional[bool] = False
+    includes_preview: Optional[bool] = False
+    delete_background: Optional[bool] = False
+    delete_preview: Optional[bool] = False
+    includes_audio: Optional[bool] = False
+    includes_jacket: Optional[bool] = False
+    includes_chart: Optional[bool] = False
+"""
 chart_data = {
+    "chart_id": "84adfd40c9504f4ca69347978f870023",
     "rating": 10,
     "title": "Cool Level",
     "artists": "Cool Artist",
-    "tags": ["test", "test2"],
-    "includes_background": False,
-    "includes_preview": False,
+    "tags": ["test3", "test4"],
+    "includes_background": True,
 }
 with open("assets/level.json", "r", encoding="utf-8") as f:
     data = json.load(f)
@@ -35,7 +55,6 @@ try:
         open("assets/music_pre.mp3", "rb"),
         "audio/mpeg",
     )
-    chart_data["includes_preview"] = True
 except FileNotFoundError:
     print("Skipping preview_file: not found.")
 
@@ -45,11 +64,10 @@ try:
         open("assets/stage.png", "rb"),
         "image/png",
     )
-    chart_data["includes_background"] = True
 except FileNotFoundError:
     print("Skipping background_image: not found.")
 
-response = requests.post(
+response = requests.patch(
     url,
     data=form_data,
     files=files,

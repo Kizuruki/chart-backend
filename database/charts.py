@@ -4,22 +4,26 @@ from typing import List, Optional, Tuple, Literal
 def generate_create_chart_query(
     chart_id: str,
     author: str,
+    rating: int,
     chart_author: str,
     title: str,
     artists: str,
     jacket_hash: str,
     music_hash: str,
     chart_hash: str,
+    v1_hash: str,
+    v3_hash: str,
     tags: List[str] = [],
+    description: Optional[str] = None,
     preview_hash: Optional[str] = None,
     background_hash: Optional[str] = None,
 ) -> Tuple[str, Tuple]:
     tags_str = tags if tags else []
 
     query = """
-        INSERT INTO charts (id, author, chart_author, title, artists, tags, jacket_file_hash, music_file_hash, chart_file_hash, preview_file_hash, background_file_hash, status, created_at, updated_at)
+        INSERT INTO charts (id, author, rating, description, chart_author, title, artists, tags, jacket_file_hash, music_file_hash, chart_file_hash, preview_file_hash, background_file_hash, background_v1_file_hash, background_v3_file_hash, status, created_at, updated_at)
         VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'PRIVATE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'PRIVATE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
         )
         RETURNING id;
     """
@@ -27,6 +31,8 @@ def generate_create_chart_query(
     return query, (
         chart_id,
         author,
+        rating,
+        description,
         chart_author,
         title,
         artists,
@@ -36,6 +42,8 @@ def generate_create_chart_query(
         chart_hash,
         preview_hash if preview_hash else None,
         background_hash if background_hash else None,
+        v1_hash,
+        v3_hash,
     )
 
 
@@ -349,6 +357,8 @@ def generate_update_metadata_query(
 def generate_update_file_hash_query(
     chart_id: str,
     jacket_hash: Optional[str] = None,
+    v1_hash: Optional[str] = None,
+    v3_hash: Optional[str] = None,
     music_hash: Optional[str] = None,
     chart_hash: Optional[str] = None,
     preview_hash: Optional[str] = None,
@@ -361,6 +371,9 @@ def generate_update_file_hash_query(
         raise ValueError(
             "File hash change is not confirmed. Ensure you are deleting the old files from S3 to avoid dangling files."
         )
+    if jacket_hash:
+        if not (v1_hash and v3_hash):
+            raise ValueError("Must regenerate v1/v3 on jacket change")
 
     set_fields = []
     args = []
@@ -371,6 +384,10 @@ def generate_update_file_hash_query(
 
     if jacket_hash is not None:
         add_field("jacket_file_hash", jacket_hash)
+    if v1_hash is not None:
+        add_field("background_v1_file_hash", v1_hash)
+    if v3_hash is not None:
+        add_field("background_v3_file_hash", v3_hash)
     if music_hash is not None:
         add_field("music_file_hash", music_hash)
     if chart_hash is not None:

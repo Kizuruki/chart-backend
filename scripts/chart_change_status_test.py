@@ -4,8 +4,7 @@ import requests, json
 url = "http://localhost:39000/api/charts/visibility/"
 
 data = {
-    "sonolus_id": "112066beb4b7a49de3e4ce64e2d5adbfbf5cff6d3df126b5da8748f76ae6c789",
-    "chart_id": "d94b969b97954944ba2a47bfd937af49",
+    "chart_id": "84adfd40c9504f4ca69347978f870023",
     "status": "PUBLIC",
 }
 

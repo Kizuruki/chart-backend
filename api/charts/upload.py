@@ -6,6 +6,11 @@ from fastapi import APIRouter, Request, HTTPException, status, UploadFile, Form
 
 from database import charts, accounts
 
+# WARNING: not async!!
+# WARNING: heavy workload!!
+import pjsk_background_gen_PIL as pjsk_bg
+from PIL import Image
+
 from helpers.models import ChartUploadData
 from helpers.sha1 import calculate_sha1
 
@@ -84,11 +89,11 @@ def setup():
                 )  # XXX todo
 
         MAX_FILE_SIZES = {
-            "jacket": 10 * 1024 * 1024,  # 10 MB
+            "jacket": 5 * 1024 * 1024,  # 5 MB
             "chart": 10 * 1024 * 1024,  # 10 MB
             "audio": 25 * 1024 * 1024,  # 20 MB
             "preview": 5 * 1024 * 1024,  # 5 MB
-            "background": 15 * 1024 * 1024,  # 15 MB
+            "background": 10 * 1024 * 1024,  # 10 MB
         }
         if (
             jacket_image.size > MAX_FILE_SIZES["jacket"]
@@ -119,7 +124,7 @@ def setup():
         jacket_hash = calculate_sha1(jacket_bytes)
         s3_uploads.append(
             {
-                "path": f"{data.sonolus_id}/{chart_id}/{jacket_hash}",
+                "path": f"{session_data['user_id']}/{chart_id}/{jacket_hash}",
                 "hash": jacket_hash,
                 "bytes": jacket_bytes,
                 "content-type": "image/png",
@@ -143,7 +148,7 @@ def setup():
         chart_hash = calculate_sha1(chart_bytes)
         s3_uploads.append(
             {
-                "path": f"{data.sonolus_id}/{chart_id}/{chart_hash}",
+                "path": f"{session_data['user_id']}/{chart_id}/{chart_hash}",
                 "hash": chart_hash,
                 "bytes": chart_bytes,
                 "content-type": "application/gzip",
@@ -154,7 +159,7 @@ def setup():
         audio_hash = calculate_sha1(audio_bytes)
         s3_uploads.append(
             {
-                "path": f"{data.sonolus_id}/{chart_id}/{audio_hash}",
+                "path": f"{session_data['user_id']}/{chart_id}/{audio_hash}",
                 "hash": audio_hash,
                 "bytes": audio_bytes,
                 "content-type": "audio/mpeg",
@@ -166,7 +171,7 @@ def setup():
             preview_hash = calculate_sha1(preview_bytes)
             s3_uploads.append(
                 {
-                    "path": f"{data.sonolus_id}/{chart_id}/{preview_hash}",
+                    "path": f"{session_data['user_id']}/{chart_id}/{preview_hash}",
                     "hash": preview_hash,
                     "bytes": preview_bytes,
                     "content-type": "audio/mpeg",
@@ -178,13 +183,46 @@ def setup():
             background_hash = calculate_sha1(background_bytes)
             s3_uploads.append(
                 {
-                    "path": f"{data.sonolus_id}/{chart_id}/{background_hash}",
+                    "path": f"{session_data['user_id']}/{chart_id}/{background_hash}",
                     "hash": background_hash,
                     "bytes": background_bytes,
                     "content-type": "image/png",
                 }
             )
 
+        def generate_backgrounds(jacket_bytes: bytes):
+            jacket_pil_image = Image.open(io.BytesIO(jacket_bytes))
+            v1 = pjsk_bg.render_v1(jacket_pil_image)
+            v3 = pjsk_bg.render_v3(jacket_pil_image)
+            v1_buffer = io.BytesIO()
+            v1.save(v1_buffer, format="PNG")
+            v1_bytes = v1_buffer.getvalue()
+            v1_buffer.close()
+            v3_buffer = io.BytesIO()
+            v3.save(v3_buffer, format="PNG")
+            v3_bytes = v3_buffer.getvalue()
+            v3_buffer.close()
+            return v1_bytes, v3_bytes
+
+        v1, v3 = await request.app.run_blocking(generate_backgrounds, jacket_bytes)
+        v1_hash = calculate_sha1(v1)
+        s3_uploads.append(
+            {
+                "path": f"{session_data['user_id']}/{chart_id}/{v1_hash}",
+                "hash": v1_hash,
+                "bytes": v1,
+                "content-type": "image/png",
+            }
+        )
+        v3_hash = calculate_sha1(v3)
+        s3_uploads.append(
+            {
+                "path": f"{session_data['user_id']}/{chart_id}/{v3_hash}",
+                "hash": v3_hash,
+                "bytes": v3,
+                "content-type": "image/png",
+            }
+        )
         async with request.app.s3_session.resource(
             **request.app.s3_resource_options
         ) as s3:
@@ -208,6 +246,8 @@ def setup():
         query, args = charts.generate_create_chart_query(
             chart_id=chart_id,
             author=session_data["user_id"],
+            rating=data.rating,
+            description=data.description,
             chart_author=data.author,
             title=data.title,
             artists=data.artists,
@@ -217,6 +257,8 @@ def setup():
             chart_hash=chart_hash,
             preview_hash=preview_hash if preview_file else None,
             background_hash=background_hash if background_image else None,
+            v1_hash=v1_hash,
+            v3_hash=v3_hash,
         )
 
         async with request.app.db.acquire() as conn:

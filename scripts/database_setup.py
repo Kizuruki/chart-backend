@@ -73,7 +73,9 @@ END $$;""",
     music_file_hash TEXT NOT NULL,
     chart_file_hash TEXT NOT NULL,
     preview_file_hash TEXT,
-    background_file_hash TEXT
+    background_file_hash TEXT,
+    background_v1_file_hash TEXT NOT NULL,
+    background_v3_file_hash TEXT NOT NULL
 );""",
         """CREATE TABLE IF NOT EXISTS chart_likes (
     chart_id TEXT NOT NULL REFERENCES charts(id) ON DELETE CASCADE,
