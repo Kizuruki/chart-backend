@@ -1,110 +1,21 @@
-import os, importlib, asyncio, json, hashlib, base64, hmac
+import os, importlib
 from urllib.parse import urlparse
 
 from concurrent.futures import ThreadPoolExecutor
 
-import yaml
-
-with open("config.yml", "r") as f:
-    config = yaml.load(f, yaml.Loader)
-
-from fastapi import FastAPI, Request
-from fastapi import status, HTTPException
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 import uvicorn
-import aioboto3
-import asyncpg
 
-debug = True
+from helpers.config_loader import get_config
+from core import ChartFastAPI
 
-
-class ChartFastAPI(FastAPI):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.debug = kwargs["debug"]
-
-        self.executor = ThreadPoolExecutor(max_workers=16)
-
-        self.config = kwargs["config"]
-        self.s3_session = aioboto3.Session(
-            aws_access_key_id=config["s3"]["access-key-id"],
-            aws_secret_access_key=config["s3"]["secret-access-key"],
-            region_name=config["s3"]["location"],
-        )
-        self.s3_resource_options = {
-            "service_name": "s3",
-            "endpoint_url": config["s3"]["endpoint"],
-        }
-        self.s3_bucket = config["s3"]["bucket-name"]
-        self.s3_asset_base_url = config["s3"]["base-url"]
-
-        self.auth = config["server"]["auth"]
-        self.auth_header = config["server"]["auth-header"]
-
-        self.token_secret_key: str = config["server"]["token-secret-key"]
-
-        self.db: asyncpg.Pool | None = None
-
-        self.exception_handlers.setdefault(HTTPException, self.http_exception_handler)
-
-    def decode_key(self, session_key: str) -> dict:
-        try:
-            encoded_data, signature = session_key.rsplit(".", 1)
-            recalculated_signature = hmac.new(
-                self.token_secret_key.encode(), encoded_data.encode(), hashlib.sha256
-            ).hexdigest()
-            if recalculated_signature == signature:
-                decoded_data = base64.urlsafe_b64decode(encoded_data).decode()
-                return json.loads(decoded_data)
-        except:
-            pass
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Invalid session token."
-        )
-
-    async def initdb(self):
-        psql_config = self.config["psql"]
-
-        self.db = await asyncpg.create_pool(
-            host=psql_config["host"],
-            user=psql_config["user"],
-            database=psql_config["database"],
-            password=psql_config["password"],
-            port=psql_config["port"],
-            min_size=psql_config["pool-min-size"],
-            max_size=psql_config["pool-max-size"],
-            ssl="disable",  # XXX: todo, im lazy :(
-        )
-
-    async def run_blocking(self, func, *args, **kwargs):
-        return await asyncio.get_event_loop().run_in_executor(
-            self.executor, lambda: func(*args, **kwargs)
-        )
-
-    async def http_exception_handler(self, request: Request, exc: HTTPException):
-        if exc.status_code < 500 and exc.status_code != 422:
-            return JSONResponse(
-                content={"message": exc.detail}, status_code=exc.status_code
-            )
-        elif exc.status_code == 422 and not debug:
-            # return actual error for debug lol
-            return JSONResponse(
-                content={"message": "Bad request. This is probably not your fault."},
-                status_code=400,
-            )
-        else:
-            if debug:
-                raise exc
-            return JSONResponse(content={}, status_code=exc.status_code)
-
-
+config = get_config()
+debug = config.get("debug", False)
 VERSION_REGEX = r"^\d+\.\d+\.\d+$"
 
-
-app = ChartFastAPI(debug=debug, config=config)
+app = ChartFastAPI(config=config)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -139,7 +50,7 @@ import os
 import importlib
 
 
-def loadRoutes(folder, cleanup: bool = True):
+def load_routes(folder, cleanup: bool = True):
     global app
     """Load Routes from the specified directory."""
 
@@ -177,8 +88,9 @@ def loadRoutes(folder, cleanup: bool = True):
     routes.sort(key=lambda x: (not x[1], x[0]))  # Static first, dynamic second
 
     for route_name, is_static in routes:
-        route = importlib.import_module(route_name)
-        if hasattr(route, "donotload") and route.donotload:
+        try:
+            route = importlib.import_module(route_name)
+        except NotImplementedError:
             continue
 
         route_version = route_name.split(".")[0]
@@ -197,7 +109,6 @@ def loadRoutes(folder, cleanup: bool = True):
             else [route_version]
         )
 
-        route.setup()
         app.include_router(route.router)
 
         print(f"[API] Loaded Route {route_name}")
@@ -209,13 +120,11 @@ async def startup_event():
     if len(os.listdir(folder)) == 0:
         print("[WARN] No routes loaded.")
     else:
-        loadRoutes(folder)
+        load_routes(folder)
         print("Routes loaded!")
 
 
 app.add_event_handler("startup", startup_event)
-
-# uvicorn.run("app:app", port=port, host="0.0.0.0")
 
 
 async def start_fastapi():
