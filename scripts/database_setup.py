@@ -65,6 +65,7 @@ END $$;""",
     artists TEXT,
     tags TEXT[] DEFAULT '{}',
     like_count BIGINT NOT NULL DEFAULT 0,
+    log_like_score DOUBLE PRECISION DEFAULT 0 NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status chart_status NOT NULL,
@@ -95,14 +96,44 @@ END $$;""",
     chart_id TEXT REFERENCES charts(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );""",
+        """CREATE OR REPLACE FUNCTION decayed_like_score(created_at TIMESTAMP, halflife INTERVAL)
+RETURNS DOUBLE PRECISION AS $$
+    SELECT exp(-EXTRACT(EPOCH FROM (NOW() - created_at)) / EXTRACT(EPOCH FROM halflife));
+$$ LANGUAGE SQL IMMUTABLE;""",
         """CREATE OR REPLACE FUNCTION update_like_count()
 RETURNS TRIGGER AS $$
+DECLARE
+    a DOUBLE PRECISION := 1.0 / EXTRACT(EPOCH FROM INTERVAL '7 days');
+    tnow DOUBLE PRECISION := EXTRACT(EPOCH FROM NOW());
+    s DOUBLE PRECISION;
 BEGIN
     IF TG_OP = 'INSERT' THEN
-        UPDATE charts SET like_count = like_count + 1 WHERE id = NEW.chart_id;
+        UPDATE charts
+        SET like_count = like_count + 1
+        WHERE id = NEW.chart_id;
+
+        SELECT COALESCE(LOG1P(EXP(a * EXTRACT(EPOCH FROM NEW.created_at)) / 
+                   EXP(COALESCE(log_like_score,0))), LOG(EXP(a * EXTRACT(EPOCH FROM NEW.created_at)))) 
+        INTO s;
+
+        UPDATE charts
+        SET log_like_score = COALESCE(log_like_score,0) + LOG1P(EXP(a * EXTRACT(EPOCH FROM NEW.created_at) - COALESCE(log_like_score,0)))
+        WHERE id = NEW.chart_id;
+
     ELSIF TG_OP = 'DELETE' THEN
-        UPDATE charts SET like_count = like_count - 1 WHERE id = OLD.chart_id;
+        UPDATE charts
+        SET like_count = like_count - 1
+        WHERE id = OLD.chart_id;
+
+        UPDATE charts c
+        SET log_like_score = COALESCE((
+            SELECT LOG(SUM(EXP(a * EXTRACT(EPOCH FROM cl.created_at))))
+            FROM chart_likes cl
+            WHERE cl.chart_id = OLD.chart_id
+        ), 0)
+        WHERE c.id = OLD.chart_id;
     END IF;
+
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
@@ -118,6 +149,8 @@ CREATE INDEX IF NOT EXISTS idx_charts_created_at ON charts(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_charts_like_count ON charts(like_count DESC);
 CREATE INDEX IF NOT EXISTS idx_chart_likes_user ON chart_likes(sonolus_id);
 CREATE INDEX IF NOT EXISTS idx_chart_likes_chart ON chart_likes(chart_id);
+CREATE INDEX IF NOT EXISTS idx_chart_likes_chart_created
+    ON chart_likes (chart_id, created_at DESC);
 
 -- GIN
 CREATE INDEX IF NOT EXISTS idx_charts_tags ON charts USING GIN(tags);
