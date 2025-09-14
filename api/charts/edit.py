@@ -1,5 +1,4 @@
-import uuid, io, asyncio
-from core import ChartFastAPI
+import io, asyncio
 
 from fastapi import APIRouter, Request, HTTPException, status, UploadFile, Form
 
@@ -7,56 +6,15 @@ from database import charts, accounts
 
 from helpers.models import ChartEditData
 from helpers.hashing import calculate_sha1
+from helpers.backgrounds import generate_backgrounds
 
-# WARNING: not async!!
-# WARNING: heavy workload!!
-import pjsk_background_gen_PIL as pjsk_bg # type: ignore
-from PIL import Image
-
-from typing import Optional, Literal
+from typing import Optional
+from helpers.file_checks import get_and_check_file
 
 from pydantic import ValidationError
 
 router = APIRouter()
 
-
-async def get_and_check_file(file, expected_type: Literal["image/png", "audio/mpeg"]):
-    # Read the first few bytes of the file (enough for magic number check)
-    if expected_type == "image/png":
-        file_bytes = await file.read(10)
-        # PNG magic number (89 50 4E 47 0D 0A 1A 0A)
-        if file_bytes[:8] != b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A":
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid file format. Please upload a valid PNG image.",
-            )
-    elif expected_type == "audio/mpeg":
-        file_bytes = await file.read(10)
-        if not (file_bytes.startswith(b"ID3") or file_bytes[:2] == b"\xff\xfb"):
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid file format. Please upload a valid MP3 audio file.",
-            )
-    await file.seek(0)
-    return await file.read()
-
-def generate_backgrounds(jacket_bytes: bytes): # consider moving to pjsk_background_gen_PIL
-    jacket_pil_image = Image.open(io.BytesIO(jacket_bytes))
-
-    v1 = pjsk_bg.render_v1(jacket_pil_image)
-    v3 = pjsk_bg.render_v3(jacket_pil_image)
-
-    v1_buffer = io.BytesIO()
-    v1.save(v1_buffer, format="PNG")
-    v1_bytes = v1_buffer.getvalue()
-    v1_buffer.close()
-
-    v3_buffer = io.BytesIO()
-    v3.save(v3_buffer, format="PNG")
-    v3_bytes = v3_buffer.getvalue()
-    v3_buffer.close()
-    
-    return v1_bytes, v3_bytes
 
 @router.patch("/")
 async def main(
@@ -68,43 +26,35 @@ async def main(
     preview_file: Optional[UploadFile] = None,
     background_image: Optional[UploadFile] = None,
 ):
-    app: ChartFastAPI = request.app
-
     try:
         data: ChartEditData = ChartEditData.model_validate_json(data)
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors())
-    
     auth = request.headers.get("authorization")
     # this is a PUBLIC route, don't check for private auth, only user auth
     if not auth:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in."
         )
-    
-    session_data = app.decode_key(auth)
+    session_data = request.app.decode_key(auth)
     if session_data["type"] != "game":  # XXX: switch to external
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token type."
         )
-    
     query, args = accounts.generate_get_account_from_session_query(
         session_data["user_id"], auth, "game"  # XXX: switch to external
     )
-
-    async with app.db.acquire() as conn:
+    async with request.app.db.acquire() as conn:
         result = await conn.fetchrow(query, *args)
-
         if not result:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in."
             )
-        
         if result["banned"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="User banned."
             )
-        
+
     MAX_FILE_SIZES = {
         "jacket": 5 * 1024 * 1024,  # 5 MB
         "chart": 10 * 1024 * 1024,  # 10 MB
@@ -114,7 +64,7 @@ async def main(
     }
 
     query, args = charts.generate_get_chart_by_id_query(data.chart_id)
-    async with app.db.acquire() as conn:
+    async with request.app.db.acquire() as conn:
         result = await conn.fetchrow(query, *args)
         if not result:
             raise HTTPException(status_code=404, detail="Chart not found.")
@@ -146,7 +96,6 @@ async def main(
             # except it's not done :heh:
             # for testing purpouse a real level packer :sob:
             chart_hash = calculate_sha1(chart_bytes)
-
             if not chart_hash == old_chart_data["chart_file_hash"]:
                 s3_uploads.append(
                     {
@@ -185,7 +134,7 @@ async def main(
                     }
                 )
                 old_deletes.append("jacket_file_hash")
-                v1, v3 = await app.run_blocking(
+                v1, v3 = await request.app.run_blocking(
                     generate_backgrounds, jacket_bytes
                 )
                 v1_hash = calculate_sha1(v1)
@@ -283,9 +232,7 @@ async def main(
                 detail="Uploaded files exceed file size limit.",
             )
         if data.includes_background and not data.delete_background:
-            background_bytes = await get_and_check_file(
-                background_image, "image/png"
-            )
+            background_bytes = await get_and_check_file(background_image, "image/png")
             background_hash = calculate_sha1(background_bytes)
             if not background_hash == old_chart_data["background_file_hash"]:
                 s3_uploads.append(
@@ -309,6 +256,7 @@ async def main(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Can't delete and include.",
         )
+
     all_hash_keys = {
         "background_file_hash",
         "background_v1_file_hash",
@@ -332,8 +280,10 @@ async def main(
     )
     deleted_hashes = deleted_candidate_hashes - kept_hashes
     if deleted_hashes or s3_uploads:
-        async with app.s3_session_getter() as s3:
-            bucket = await s3.Bucket(app.s3_bucket)
+        async with request.app.s3_session.resource(
+            **request.app.s3_resource_options
+        ) as s3:
+            bucket = await s3.Bucket(request.app.s3_bucket)
             tasks = []
             alr_deleted_hashes = []
             for file_hash in deleted_hashes:
@@ -358,7 +308,6 @@ async def main(
                 )
                 tasks.append(task)
             await asyncio.gather(*tasks)
-
     query, args = charts.generate_update_metadata_query(
         chart_id=data.chart_id,
         chart_author=data.author,
@@ -369,7 +318,6 @@ async def main(
         description=data.description if data.description.strip() != "" else None,
         update_none_description=False if data.description.strip() != "" else True,
     )
-
     query2, args2 = charts.generate_update_file_hash_query(
         chart_id=data.chart_id,
         jacket_hash=jacket_hash if data.includes_jacket and jacket_image else None,
@@ -377,22 +325,17 @@ async def main(
         v3_hash=v3_hash if data.includes_jacket and jacket_image else None,
         music_hash=audio_hash if data.includes_audio and audio_file else None,
         chart_hash=chart_hash if data.includes_chart and chart_file else None,
-        preview_hash=(
-            preview_hash if data.includes_preview and preview_file else None
-        ),
+        preview_hash=(preview_hash if data.includes_preview and preview_file else None),
         background_hash=(
-            background_hash
-            if data.includes_background and background_image
-            else None
+            background_hash if data.includes_background and background_image else None
         ),
         confirm_change=True,
         update_none_preview=True if data.delete_preview else False,
         update_none_background=True if data.delete_background else False,
     )
 
-    async with app.db.acquire() as conn:
+    async with request.app.db.acquire() as conn:
         res1 = await conn.execute(query, *args)
         res2 = await conn.execute(query2, *args2)
         print(res1, res2)
-
     return {"result": "success"}

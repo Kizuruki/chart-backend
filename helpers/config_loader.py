@@ -11,8 +11,8 @@ ConfigTypeServer = TypedDict(
         "auth": str,
         "auth-header": str,
         "token-secret-key": str,
-        "debug": bool
-    }
+        "debug": bool,
+    },
 )
 
 ConfigTypeS3 = TypedDict(
@@ -23,8 +23,8 @@ ConfigTypeS3 = TypedDict(
         "bucket-name": str,
         "access-key-id": str,
         "secret-access-key": str,
-        "location": str
-    }
+        "location": str,
+    },
 )
 
 ConfigTypePsql = TypedDict(
@@ -36,8 +36,8 @@ ConfigTypePsql = TypedDict(
         "port": int,
         "password": str,
         "pool-min-size": int,
-        "pool-max-size": int
-    }
+        "pool-max-size": int,
+    },
 )
 
 ConfigType = TypedDict(
@@ -46,10 +46,13 @@ ConfigType = TypedDict(
         "server": ConfigTypeServer,
         "s3": ConfigTypeS3,
         "psql": ConfigTypePsql,
-    }
+    },
 )
+
 
 def get_config() -> ConfigType:
     with open("config.yml", "r") as f:
-        config = yaml.load(f, yaml.Loader) # NOTE: would be better to use pydantic-config
+        config = yaml.load(
+            f, yaml.Loader
+        )  # NOTE: would be better to use pydantic-config
     return config

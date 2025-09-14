@@ -3,9 +3,10 @@ from fastapi import FastAPI, Request
 from fastapi import status, HTTPException
 from fastapi.responses import JSONResponse
 from helpers.config_loader import ConfigType
-from asyncio import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 import aioboto3
 import asyncpg
+
 
 class ChartFastAPI(FastAPI):
     def __init__(self, config: ConfigType, *args, **kwargs):

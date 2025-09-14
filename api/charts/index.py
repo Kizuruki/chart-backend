@@ -3,8 +3,6 @@ from core import ChartFastAPI
 
 from database import charts
 
-from helpers.models import ServiceUserProfileWithType
-
 router = APIRouter()
 
 
@@ -31,7 +29,7 @@ async def main(request: Request):
 
         data = [dict(row) for row in rows] if rows else []
         return {"data": data, "asset_base_url": app.s3_asset_base_url}
-    
+
     page = 0
     items_per_page = 5
     query, args = charts.generate_get_chart_list_query(
@@ -53,7 +51,7 @@ async def main(request: Request):
             data = []
 
     print(rows, total, page_count, data)
-    
+
     return {
         "pageCount": page_count,
         "data": data,

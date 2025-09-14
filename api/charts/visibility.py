@@ -40,7 +40,7 @@ async def main(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="User banned."
             )
-        
+
     query, args = charts.generate_update_status_query(
         chart_id=data.chart_id,
         status=data.status,

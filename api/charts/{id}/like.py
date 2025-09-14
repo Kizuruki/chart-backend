@@ -28,7 +28,7 @@ async def main(request: Request, id: str, data: Like):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chart ID."
         )
-    
+
     chart_id = id.removeprefix("UnCh-")
 
     if data.type == "like":
@@ -45,11 +45,11 @@ async def main(request: Request, id: str, data: Like):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in."
             )
-        
+
         if result["banned"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="User banned."
             )
-        
+
         await conn.execute(query, *args)
     return {"result": "success"}

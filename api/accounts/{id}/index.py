@@ -1,12 +1,8 @@
-import uuid, json, base64, hashlib
-import hmac
 from core import ChartFastAPI
 
 from fastapi import APIRouter, Request, HTTPException, status
 
 from database import accounts
-
-from helpers.models import ServiceUserProfileWithType
 
 router = APIRouter()
 
@@ -17,7 +13,7 @@ async def main_delete(request: Request, id: str):
 
     if request.headers.get(app.auth_header) != app.auth:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="why?")
-    
+
     prefix = f"{id}/"
     bucket_name = app.s3_bucket
 
