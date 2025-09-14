@@ -35,5 +35,9 @@ def setup():
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND, detail=f"Chart not found."
                 )
+            if result["status"] == "PRIVATE" and result["author"] != sonolus_id:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail=f"Chart not found."
+                )
         data = dict(result)
         return {"data": data, "asset_base_url": request.app.s3_asset_base_url}

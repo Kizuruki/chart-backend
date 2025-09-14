@@ -401,25 +401,35 @@ def generate_update_file_hash_query(
 
 
 def generate_add_like_query(chart_id: str, sonolus_id: str) -> Tuple[str, Tuple]:
-    """
-    Add a like: inserts into chart_likes.
-    """
     query = """
-    -- Insert like if not already present
     INSERT INTO chart_likes (chart_id, sonolus_id, created_at)
-    VALUES ($1, $2, CURRENT_TIMESTAMP)
+    SELECT $1, $2, CURRENT_TIMESTAMP
+    WHERE EXISTS (
+        SELECT 1 FROM charts
+        WHERE id = $1
+        AND (
+            status IN ('UNLISTED', 'PUBLIC')
+            OR (status = 'PRIVATE' AND author = $2)
+        )
+    )
     ON CONFLICT DO NOTHING;
     """
     return query, (chart_id, sonolus_id)
 
 
 def generate_remove_like_query(chart_id: str, sonolus_id: str) -> Tuple[str, Tuple]:
-    """
-    Remove a like: deletes from chart_likes (triggers updates like_count).
-    """
     query = """
     DELETE FROM chart_likes
-    WHERE chart_id = $1 AND sonolus_id = $2;
+    WHERE chart_id = $1
+      AND sonolus_id = $2
+      AND EXISTS (
+          SELECT 1 FROM charts
+          WHERE id = $1
+          AND (
+              status IN ('UNLISTED', 'PUBLIC')
+              OR (status = 'PRIVATE' AND author = $2)
+          )
+      );
     """
     return query, (chart_id, sonolus_id)
 
