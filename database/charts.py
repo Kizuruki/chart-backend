@@ -52,7 +52,7 @@ def generate_get_chart_list_query(
     title_includes: Optional[str] = None,
     description_includes: Optional[str] = None,
     artists_includes: Optional[str] = None,
-    sort_by: Literal["created_at", "rating", "likes"] = "created_at",
+    sort_by: Literal["created_at", "rating", "likes", "decaying_likes"] = "created_at",
     sort_order: Literal["desc", "asc"] = "desc",
     sonolus_id: Optional[str] = None,
 ) -> Tuple[str, Tuple]:
@@ -153,6 +153,7 @@ def generate_get_chart_list_query(
         "created_at": "c.created_at",
         "rating": "c.rating",
         "likes": "c.like_count",
+        "decaying_likes": "c.log_like_score",
     }.get(sort_by, "c.created_at")
 
     sort_order = "DESC" if sort_order.lower() == "desc" else "ASC"
