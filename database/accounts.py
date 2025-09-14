@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime, timedelta
 
 from typing import Tuple, Optional
@@ -32,6 +31,7 @@ def generate_create_account_query(
 
 
 def generate_create_account_if_not_exists_and_new_session_query(
+    session_key: str,
     sonolus_id: str,
     sonolus_handle: int,
     session_type: str,
@@ -40,7 +40,6 @@ def generate_create_account_if_not_exists_and_new_session_query(
     if session_type not in ("game", "external"):
         raise ValueError("invalid session type. must be 'game' or 'external'.")
 
-    session_key = str(uuid.uuid4())
     expiry_time = int(
         (datetime.now() + timedelta(milliseconds=expiry_ms)).timestamp() * 1000
     )
@@ -109,6 +108,7 @@ def generate_create_account_if_not_exists_and_new_session_query(
 def generate_get_account_from_session_query(
     sonolus_id: str, session_key: str, session_type: str
 ) -> Tuple[str, Tuple]:
+    assert session_type in ["game", "external"]
     return f"""
         SELECT *
         FROM accounts

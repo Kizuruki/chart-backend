@@ -1,9 +1,10 @@
-from typing import List, Optional, Tuple
-import uuid
+from typing import List, Optional, Tuple, Literal
 
 
 def generate_create_chart_query(
+    chart_id: str,
     author: str,
+    chart_author: str,
     title: str,
     artists: str,
     jacket_hash: str,
@@ -13,13 +14,12 @@ def generate_create_chart_query(
     preview_hash: Optional[str] = None,
     background_hash: Optional[str] = None,
 ) -> Tuple[str, Tuple]:
-    chart_id = str(uuid.uuid4()).replace("-", "")
     tags_str = tags if tags else []
 
     query = """
-        INSERT INTO charts (id, author, title, artists, tags, jacket_file_hash, music_file_hash, chart_file_hash, preview_file_hash, background_file_hash, status, created_at, updated_at)
+        INSERT INTO charts (id, author, chart_author, title, artists, tags, jacket_file_hash, music_file_hash, chart_file_hash, preview_file_hash, background_file_hash, status, created_at, updated_at)
         VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'PRIVATE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'PRIVATE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
         )
         RETURNING id;
     """
@@ -27,6 +27,7 @@ def generate_create_chart_query(
     return query, (
         chart_id,
         author,
+        chart_author,
         title,
         artists,
         tags_str,
@@ -37,11 +38,238 @@ def generate_create_chart_query(
         background_hash if background_hash else None,
     )
 
-def generate_get_chart_by_id_query(chart_id: str) -> Tuple[str, Tuple]:
-    query = """
-        SELECT * FROM charts WHERE id = $1;
+
+def generate_get_chart_list_query(
+    page: int,
+    items_per_page: int,
+    min_rating: Optional[int] = None,
+    max_rating: Optional[int] = None,
+    status: str = "PUBLIC",
+    tags: Optional[List[str]] = None,
+    min_likes: Optional[int] = None,
+    max_likes: Optional[int] = None,
+    liked_by: Optional[str] = None,
+    title_includes: Optional[str] = None,
+    description_includes: Optional[str] = None,
+    artists_includes: Optional[str] = None,
+    sort_by: Literal["created_at", "rating", "likes"] = "created_at",
+    sort_order: Literal["desc", "asc"] = "desc",
+    sonolus_id: Optional[str] = None,
+) -> Tuple[str, Tuple]:
     """
-    return query, (chart_id,)
+    Generate a SELECT query for retrieving charts with advanced filtering and sorting.
+    Includes 'liked' boolean if sonolus_id is provided.
+    """
+
+    # Base query
+    base_query = """
+        SELECT 
+            c.id, 
+            c.title, 
+            c.artists, 
+            c.description, 
+            c.tags,
+            c.jacket_file_hash, 
+            c.music_file_hash, 
+            c.chart_file_hash,
+            c.preview_file_hash, 
+            c.background_file_hash, 
+            c.status,
+            c.rating, 
+            c.like_count,
+            c.created_at, 
+            c.updated_at,
+            c.chart_author || '#' || a.sonolus_handle AS author_full,
+            COUNT(*) OVER() AS total_count
+    """
+
+    # Include liked column if sonolus_id is passed
+    if sonolus_id:
+        base_query += """,
+            CASE WHEN cl.sonolus_id IS NULL THEN FALSE ELSE TRUE END AS liked
+        """
+
+    base_query += """
+        FROM charts c
+        JOIN accounts a ON c.author = a.sonolus_id
+    """
+
+    # Join chart_likes if needed
+    if liked_by:
+        base_query += " JOIN chart_likes clb ON c.id = clb.chart_id"
+    if sonolus_id:
+        base_query += f" LEFT JOIN chart_likes cl ON c.id = cl.chart_id AND cl.sonolus_id = ${len(sonolus_id)+1}"
+
+    conditions = []
+    params = []
+
+    # Status filter
+    if status:
+        params.append(status)
+        conditions.append(f"c.status = ${len(params)}")
+
+    # Rating filters
+    if min_rating is not None:
+        params.append(min_rating)
+        conditions.append(f"c.rating >= ${len(params)}")
+    if max_rating is not None:
+        params.append(max_rating)
+        conditions.append(f"c.rating <= ${len(params)}")
+
+    # Tag filter
+    if tags:
+        params.append(tags)
+        conditions.append(f"c.tags @> ${len(params)}")
+
+    # Like count filters
+    if min_likes is not None:
+        params.append(min_likes)
+        conditions.append(f"c.like_count >= ${len(params)}")
+    if max_likes is not None:
+        params.append(max_likes)
+        conditions.append(f"c.like_count <= ${len(params)}")
+
+    # liked_by filter
+    if liked_by:
+        params.append(liked_by)
+        conditions.append(f"clb.sonolus_id = ${len(params)}")
+
+    # Text filters
+    if title_includes:
+        params.append(f"%{title_includes.lower()}%")
+        conditions.append(f"LOWER(c.title) LIKE ${len(params)}")
+    if description_includes:
+        params.append(f"%{description_includes.lower()}%")
+        conditions.append(f"LOWER(c.description) LIKE ${len(params)}")
+    if artists_includes:
+        params.append(f"%{artists_includes.lower()}%")
+        conditions.append(f"LOWER(c.artists) LIKE ${len(params)}")
+
+    if conditions:
+        base_query += " WHERE " + " AND ".join(conditions)
+
+    # Sorting
+    sort_column = {
+        "created_at": "c.created_at",
+        "rating": "c.rating",
+        "likes": "c.like_count",
+    }.get(sort_by, "c.created_at")
+
+    sort_order = "DESC" if sort_order.lower() == "desc" else "ASC"
+    base_query += f" ORDER BY {sort_column} {sort_order}"
+
+    # Pagination
+    params.append(items_per_page)
+    params.append(page * items_per_page)
+    base_query += f" LIMIT ${len(params)-1} OFFSET ${len(params)}"
+
+    # Include sonolus_id param at the end if needed
+    if sonolus_id:
+        params = (*params, sonolus_id)
+
+    return base_query, tuple(params)
+
+
+def generate_get_random_charts_query(
+    return_count: int, sonolus_id: Optional[str] = None
+) -> Tuple[str, Tuple]:
+    """
+    Generate a SELECT query for retrieving a random set of charts.
+    If sonolus_id is provided, return a boolean 'liked' for each chart.
+    """
+    if not sonolus_id:
+        query = """
+            SELECT 
+                c.id,
+                c.title,
+                c.author,
+                c.artists,
+                c.description,
+                c.tags,
+                c.jacket_file_hash,
+                c.music_file_hash,
+                c.chart_file_hash,
+                c.preview_file_hash,
+                c.background_file_hash,
+                c.status,
+                c.rating,
+                c.like_count,
+                c.created_at,
+                c.updated_at,
+                c.chart_author || '#' || a.sonolus_handle AS author_full
+            FROM charts c
+            JOIN accounts a ON c.author = a.sonolus_id
+            WHERE c.status = 'PUBLIC'
+            ORDER BY RANDOM()
+            LIMIT $1
+        """
+        return query, (return_count,)
+    else:
+        query = """
+            SELECT 
+                c.id,
+                c.title,
+                c.author,
+                c.artists,
+                c.description,
+                c.tags,
+                c.jacket_file_hash,
+                c.music_file_hash,
+                c.chart_file_hash,
+                c.preview_file_hash,
+                c.background_file_hash,
+                c.status,
+                c.rating,
+                c.like_count,
+                c.created_at,
+                c.updated_at,
+                c.chart_author || '#' || a.sonolus_handle AS author_full,
+                CASE WHEN cl.sonolus_id IS NULL THEN FALSE ELSE TRUE END AS liked
+            FROM charts c
+            JOIN accounts a ON c.author = a.sonolus_id
+            LEFT JOIN chart_likes cl 
+                ON c.id = cl.chart_id AND cl.sonolus_id = $2
+            WHERE c.status = 'PUBLIC'
+            ORDER BY RANDOM()
+            LIMIT $1
+        """
+        return query, (return_count, sonolus_id)
+
+
+def generate_get_chart_by_id_query(
+    chart_id: str, sonolus_id: Optional[str] = None
+) -> Tuple[str, Tuple]:
+    """
+    Generate a query to get a chart by its ID.
+    If sonolus_id is provided, also return whether this user has liked the chart.
+    """
+    params = [chart_id]
+
+    if sonolus_id:
+        params.append(sonolus_id)
+        query = """
+            SELECT 
+                c.*,
+                c.chart_author || '#' || a.sonolus_handle AS author_full,
+                (cl.sonolus_id IS NOT NULL) AS liked
+            FROM charts c
+            JOIN accounts a ON c.author = a.sonolus_id
+            LEFT JOIN chart_likes cl 
+                ON c.id = cl.chart_id AND cl.sonolus_id = $2
+            WHERE c.id = $1;
+        """
+    else:
+        query = """
+            SELECT 
+                c.*,
+                c.chart_author || '#' || a.sonolus_handle AS author_full
+            FROM charts c
+            JOIN accounts a ON c.author = a.sonolus_id
+            WHERE c.id = $1;
+        """
+
+    return query, tuple(params)
+
 
 def generate_delete_chart_query(
     chart_id: str, confirm_change: bool = False
@@ -60,6 +288,7 @@ def generate_delete_chart_query(
 
 def generate_update_metadata_query(
     chart_id: str,
+    chart_author: Optional[str] = None,
     rating: Optional[int] = None,
     description: Optional[str] = None,
     title: Optional[str] = None,
@@ -67,45 +296,53 @@ def generate_update_metadata_query(
     tags: Optional[List[str]] = None,
     update_none_description: bool = False,
 ) -> Tuple[str, Tuple]:
-    if not any([rating, description, title, artists, tags]):
+    if not any(
+        [
+            rating,
+            description,
+            title,
+            artists,
+            tags,
+            chart_author,
+            update_none_description,
+        ]
+    ):
         raise ValueError("At least one field must be updated.")
 
     set_fields = []
     args = []
 
-    if rating is not None:
-        set_fields.append("rating = $1")
-        args.append(rating)
+    def add_field(field_name: str, value):
+        args.append(value)
+        set_fields.append(f"{field_name} = ${len(args)}")
 
+    if rating is not None:
+        add_field("rating", rating)
+    if chart_author is not None:
+        add_field("author", chart_author)
     if description is not None:
-        set_fields.append("description = $2")
-        args.append(description)
+        add_field("description", description)
     elif update_none_description:
         set_fields.append("description = NULL")
-
     if title is not None:
-        set_fields.append("title = $3")
-        args.append(title)
-
+        add_field("title", title)
     if artists is not None:
-        set_fields.append("artists = $4")
-        args.append(artists)
-
+        add_field("artists", artists)
     if tags is not None:
-        set_fields.append("tags = $5")
-        args.append(tags)
+        add_field("tags", tags)
 
     set_fields.append("updated_at = CURRENT_TIMESTAMP")
 
     set_clause = ", ".join(set_fields)
 
-    return f"""
+    args.append(chart_id)
+    query = f"""
         UPDATE charts
         SET {set_clause}
-        WHERE id = $6;
-    """, tuple(
-        args + [chart_id]
-    )
+        WHERE id = ${len(args)};
+    """
+
+    return query, tuple(args)
 
 
 def generate_update_file_hash_query(
@@ -121,33 +358,28 @@ def generate_update_file_hash_query(
 ) -> Tuple[str, Tuple]:
     if not confirm_change:
         raise ValueError(
-            "File hash change is not confirmed. Ensure you are deleting the old files from S3 to ensure there is no hanging files."
+            "File hash change is not confirmed. Ensure you are deleting the old files from S3 to avoid dangling files."
         )
 
     set_fields = []
     args = []
 
+    def add_field(field_name: str, value):
+        args.append(value)
+        set_fields.append(f"{field_name} = ${len(args)}")
+
     if jacket_hash is not None:
-        set_fields.append("jacket_file_hash = $1")
-        args.append(jacket_hash)
-
+        add_field("jacket_file_hash", jacket_hash)
     if music_hash is not None:
-        set_fields.append("music_file_hash = $2")
-        args.append(music_hash)
-
+        add_field("music_file_hash", music_hash)
     if chart_hash is not None:
-        set_fields.append("chart_file_hash = $3")
-        args.append(chart_hash)
-
+        add_field("chart_file_hash", chart_hash)
     if preview_hash is not None:
-        set_fields.append("preview_file_hash = $4")
-        args.append(preview_hash)
+        add_field("preview_file_hash", preview_hash)
     elif update_none_preview:
         set_fields.append("preview_file_hash = NULL")
-
     if background_hash is not None:
-        set_fields.append("background_file_hash = $5")
-        args.append(background_hash)
+        add_field("background_file_hash", background_hash)
     elif update_none_background:
         set_fields.append("background_file_hash = NULL")
 
@@ -158,47 +390,50 @@ def generate_update_file_hash_query(
 
     set_clause = ", ".join(set_fields)
 
-    return f"""
+    args.append(chart_id)
+    query = f"""
         UPDATE charts
         SET {set_clause}
-        WHERE id = $6;
-    """, tuple(
-        args + [chart_id]
-    )
+        WHERE id = ${len(args)};
+    """
+
+    return query, tuple(args)
 
 
 def generate_add_like_query(chart_id: str, sonolus_id: str) -> Tuple[str, Tuple]:
-    return """
-        UPDATE charts
-        SET likes = array_append(likes, $1), updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2;
-
-        UPDATE accounts
-        SET previous_likes = array_append(previous_likes, $2)
-        WHERE sonolus_id = $1;
-    """, (
-        sonolus_id,
-        chart_id,
-    )
+    """
+    Add a like: inserts into chart_likes.
+    """
+    query = """
+    -- Insert like if not already present
+    INSERT INTO chart_likes (chart_id, sonolus_id, created_at)
+    VALUES ($1, $2, CURRENT_TIMESTAMP)
+    ON CONFLICT DO NOTHING;
+    """
+    return query, (chart_id, sonolus_id)
 
 
 def generate_remove_like_query(chart_id: str, sonolus_id: str) -> Tuple[str, Tuple]:
-    return """
-        UPDATE charts
-        SET likes = array_remove(likes, $1), updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2;
-    """, (
-        sonolus_id,
-        chart_id,
-    )
+    """
+    Remove a like: deletes from chart_likes (triggers updates like_count).
+    """
+    query = """
+    DELETE FROM chart_likes
+    WHERE chart_id = $1 AND sonolus_id = $2;
+    """
+    return query, (chart_id, sonolus_id)
 
 
-def generate_update_status_query(chart_id: str, status: str) -> Tuple[str, Tuple]:
+def generate_update_status_query(
+    chart_id: str, sonolus_id: str, status: Literal["PUBLIC", "UNLISTED", "PRIVATE"]
+) -> Tuple[str, Tuple]:
     return """
         UPDATE charts
         SET status = $1, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2;
+        WHERE id = $2 AND author = $3
+        RETURNING id;
     """, (
         status,
         chart_id,
+        sonolus_id,
     )

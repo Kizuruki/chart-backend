@@ -23,39 +23,47 @@ class ServerAuthenticateRequest(BaseModel):
     userProfile: ServiceUserProfile
 
 
+class Like(BaseModel):
+    type: Literal["like", "unlike"]
+
+
 class ServiceUserProfileWithType(ServiceUserProfile):
     type: Literal["game", "external"]
 
 
-class ChartUploadData(BaseModel):
-    sonolus_id: str
+class ChartVisibilityData(BaseModel):
     chart_id: str
+    status: Literal["PUBLIC", "PRIVATE", "UNLISTED"]
+
+
+class ChartUploadData(BaseModel):
     rating: int
     title: str
+    author: str
     artists: str
 
-    tags: Optional[List[str]]
-    description: Optional[str]
+    tags: Optional[List[str]] = []
+    description: Optional[str] = None
     # optional, can be False
-    includes_background: bool
-    includes_preview: bool
+    includes_background: bool = False
+    includes_preview: bool = False
 
 
 class ChartEditData(BaseModel):
-    sonolus_id: str
     chart_id: str
 
-    rating: Optional[int]
-    title: Optional[str]
-    artists: Optional[str]
-    description: Optional[str]
-    tags: Optional[List[str]]
+    author: Optional[str] = None
+    rating: Optional[int] = None
+    title: Optional[str] = None
+    artists: Optional[str] = None
+    description: Optional[str] = None
+    tags: Optional[List[str]] = []
 
     # files
-    includes_background: Optional[bool]
-    includes_preview: Optional[bool]
-    delete_background: Optional[bool]
-    delete_preview: Optional[bool]
-    includes_audio: Optional[bool]
-    includes_jacket: Optional[bool]
-    includes_chart: Optional[bool]
+    includes_background: Optional[bool] = False
+    includes_preview: Optional[bool] = False
+    delete_background: Optional[bool] = False
+    delete_preview: Optional[bool] = False
+    includes_audio: Optional[bool] = False
+    includes_jacket: Optional[bool] = False
+    includes_chart: Optional[bool] = False

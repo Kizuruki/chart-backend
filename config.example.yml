@@ -1,0 +1,25 @@
+server:
+  port: 8000
+  secret-key: "secret key for stored sessions"
+  base-url: "base api url"
+  force-https: False # on the / link redirects
+  # Should match sonolus backend auth
+  # Should not be given out
+  auth: "required auth"
+  auth-header: "random auth header (CANNOT BE 'authorization'!)"
+  token-secret-key: "256bit key (or whatever)"
+s3:
+  base-url: "..." # public access url where public can access your items
+  endpoint: "..." # endpoint for requests
+  bucket-name: "..."
+  access-key-id: "..."
+  secret-access-key: "..."
+  location: "auto" # note: auto is for R2 cloudflare only.
+psql:
+  host: "..."
+  user: "..."
+  database: "..."
+  port: 5432
+  password: "..."
+  pool-min-size: 10
+  pool-max-size: 20

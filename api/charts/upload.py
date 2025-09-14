@@ -1,6 +1,8 @@
 donotload = False
 
-from fastapi import APIRouter, Request, HTTPException, status, UploadFile, File
+import uuid, io, asyncio
+
+from fastapi import APIRouter, Request, HTTPException, status, UploadFile, Form
 
 from database import charts, accounts
 
@@ -9,27 +11,24 @@ from helpers.sha1 import calculate_sha1
 
 from typing import Optional, Literal
 
+from pydantic import ValidationError
+
 router = APIRouter()
 
 
-async def get_and_check_file(file, expected_type: Literal["image/png", "audio/mp3"]):
+async def get_and_check_file(file, expected_type: Literal["image/png", "audio/mpeg"]):
     # Read the first few bytes of the file (enough for magic number check)
-    file_bytes = await file.read(10)
-
     if expected_type == "image/png":
+        file_bytes = await file.read(10)
         # PNG magic number (89 50 4E 47 0D 0A 1A 0A)
         if file_bytes[:8] != b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A":
             raise HTTPException(
                 status_code=400,
                 detail="Invalid file format. Please upload a valid PNG image.",
             )
-    elif expected_type == "audio/mp3":
-        # MP3 magic number (FF FB or FF F3 or FF F2)
-        if not (
-            file_bytes[:2] == b"\xFF\xFB"
-            or file_bytes[:2] == b"\xFF\xF3"
-            or file_bytes[:2] == b"\xFF\xF2"
-        ):
+    elif expected_type == "audio/mpeg":
+        file_bytes = await file.read(10)
+        if not (file_bytes.startswith(b"ID3") or file_bytes[:2] == b"\xff\xfb"):
             raise HTTPException(
                 status_code=400,
                 detail="Invalid file format. Please upload a valid MP3 audio file.",
@@ -42,23 +41,47 @@ def setup():
     @router.post("/")
     async def main(
         request: Request,
-        data: ChartUploadData,
         jacket_image: UploadFile,
         chart_file: UploadFile,
         audio_file: UploadFile,
+        data: str = Form(...),
         preview_file: Optional[UploadFile] = None,
         background_image: Optional[UploadFile] = None,
     ):
+        try:
+            data: ChartUploadData = ChartUploadData.model_validate_json(data)
+        except ValidationError as e:
+            raise HTTPException(status_code=422, detail=e.errors())
         auth = request.headers.get("authorization")
-        # this is a PUBLIC route, don't check for private auth
+        # this is a PUBLIC route, don't check for private auth, only user auth
         if not auth:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in."
             )
+        session_data = request.app.decode_key(auth)
+        if session_data["type"] != "game":  # XXX: switch to external
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token type."
+            )
         query, args = accounts.generate_get_account_from_session_query(
-            data.sonolus_id, auth, "external"
+            session_data["user_id"], auth, "game"  # XXX: switch to external
         )
-        # XXX: debugging! let's not even check if account is valid rn lol, we don't even have external auth
+        async with request.app.db.acquire() as conn:
+            result = await conn.fetchrow(query, *args)
+            if not result:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in."
+                )
+            if result["banned"]:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="User banned."
+                )
+            cooldown = result["chart_upload_cooldown"]
+            if cooldown and (True):  # XXX: insert cooldown, compared cooldown
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=f"On cooldown. TIME REMAINING",
+                )  # XXX todo
 
         MAX_FILE_SIZES = {
             "jacket": 10 * 1024 * 1024,  # 10 MB
@@ -89,31 +112,103 @@ def setup():
                     detail="Uploaded files exceed file size limit.",
                 )
 
+        s3_uploads = []
+        chart_id = str(uuid.uuid4()).replace("-", "")
+
         jacket_bytes = await get_and_check_file(jacket_image, "image/png")
         jacket_hash = calculate_sha1(jacket_bytes)
-        await upload_to_s3(jacket_image, jacket_hash)
+        s3_uploads.append(
+            {
+                "path": f"{data.sonolus_id}/{chart_id}/{jacket_hash}",
+                "hash": jacket_hash,
+                "bytes": jacket_bytes,
+                "content-type": "image/png",
+            }
+        )
 
+        # XXX: only needed before file converter
+        start = await chart_file.read(2)
+        await chart_file.seek(0)
+        if start[:2] == b"\x1f\x8b":  # GZIP magic number
+            pass
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid file format."
+            )
         chart_bytes = await chart_file.read()
+        # TODO: implement level converter
+        # pip install git+https://github.com/UntitledCharts/sonolus-level-converters
+        # except it's not done :heh:
+        # for testing purpouse a real level packer :sob:
         chart_hash = calculate_sha1(chart_bytes)
-        await upload_to_s3(chart_file, chart_hash)
+        s3_uploads.append(
+            {
+                "path": f"{data.sonolus_id}/{chart_id}/{chart_hash}",
+                "hash": chart_hash,
+                "bytes": chart_bytes,
+                "content-type": "application/gzip",
+            }
+        )
 
-        audio_bytes = await get_and_check_file(audio_file, "audio/mp3")
+        audio_bytes = await get_and_check_file(audio_file, "audio/mpeg")
         audio_hash = calculate_sha1(audio_bytes)
-        await upload_to_s3(audio_file, audio_hash)
+        s3_uploads.append(
+            {
+                "path": f"{data.sonolus_id}/{chart_id}/{audio_hash}",
+                "hash": audio_hash,
+                "bytes": audio_bytes,
+                "content-type": "audio/mpeg",
+            }
+        )
 
         if preview_file:
-            preview_bytes = await get_and_check_file(preview_file, "audio/mp3")
+            preview_bytes = await get_and_check_file(preview_file, "audio/mpeg")
             preview_hash = calculate_sha1(preview_bytes)
-            await upload_to_s3(preview_bytes, preview_hash)
+            s3_uploads.append(
+                {
+                    "path": f"{data.sonolus_id}/{chart_id}/{preview_hash}",
+                    "hash": preview_hash,
+                    "bytes": preview_bytes,
+                    "content-type": "audio/mpeg",
+                }
+            )
 
-        # Optional: Reading bytes and calculating hash for background image
         if background_image:
             background_bytes = await get_and_check_file(background_image, "image/png")
             background_hash = calculate_sha1(background_bytes)
-            await upload_to_s3(background_image, background_hash)
+            s3_uploads.append(
+                {
+                    "path": f"{data.sonolus_id}/{chart_id}/{background_hash}",
+                    "hash": background_hash,
+                    "bytes": background_bytes,
+                    "content-type": "image/png",
+                }
+            )
 
+        async with request.app.s3_session.resource(
+            **request.app.s3_resource_options
+        ) as s3:
+            bucket = await s3.Bucket(request.app.s3_bucket)
+            tasks = []
+            alr_added_hashes = []
+            for file in s3_uploads:
+                if file["hash"] in alr_added_hashes:
+                    continue
+                alr_added_hashes.append(file["hash"])
+                path = file["path"]
+                file_bytes = file["bytes"]
+                content_type = file["content-type"]
+                task = bucket.upload_fileobj(
+                    Fileobj=io.BytesIO(file_bytes),
+                    Key=path,
+                    ExtraArgs={"ContentType": content_type},
+                )
+                tasks.append(task)
+            await asyncio.gather(*tasks)
         query, args = charts.generate_create_chart_query(
-            author="delete_me",# XXX: sonolus id except we're not grabbing account yet
+            chart_id=chart_id,
+            author=session_data["user_id"],
+            chart_author=data.author,
             title=data.title,
             artists=data.artists,
             tags=data.tags or [],
@@ -127,15 +222,8 @@ def setup():
         async with request.app.db.acquire() as conn:
             result = await conn.fetchrow(query, *args)
             if result:
-                id = result["id"]
-                if id:
-                    query, args = charts.generate_get_chart_by_id_query(
-                        data.id
-                    )
-                    res = await conn.fetchrow(query, *args)
-                    print(res)
                 return {"id": result["id"]}
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error while processing session result.",
+                detail="Error while processing upload result.",
             )

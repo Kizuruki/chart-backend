@@ -1,4 +1,4 @@
-import os, importlib, asyncio
+import os, importlib, asyncio, json, hashlib, base64, hmac
 from urllib.parse import urlparse
 
 from concurrent.futures import ThreadPoolExecutor
@@ -14,7 +14,6 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-from pydantic import ValidationError
 import uvicorn
 import aioboto3
 import asyncpg
@@ -35,18 +34,36 @@ class ChartFastAPI(FastAPI):
             aws_secret_access_key=config["s3"]["secret-access-key"],
             region_name=config["s3"]["location"],
         )
-        self.s3_client_options = {
+        self.s3_resource_options = {
             "service_name": "s3",
             "endpoint_url": config["s3"]["endpoint"],
         }
         self.s3_bucket = config["s3"]["bucket-name"]
+        self.s3_asset_base_url = config["s3"]["base-url"]
 
         self.auth = config["server"]["auth"]
         self.auth_header = config["server"]["auth-header"]
 
+        self.token_secret_key: str = config["server"]["token-secret-key"]
+
         self.db: asyncpg.Pool | None = None
 
         self.exception_handlers.setdefault(HTTPException, self.http_exception_handler)
+
+    def decode_key(self, session_key: str) -> dict:
+        try:
+            encoded_data, signature = session_key.rsplit(".", 1)
+            recalculated_signature = hmac.new(
+                self.token_secret_key.encode(), encoded_data.encode(), hashlib.sha256
+            ).hexdigest()
+            if recalculated_signature == signature:
+                decoded_data = base64.urlsafe_b64decode(encoded_data).decode()
+                return json.loads(decoded_data)
+        except:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Invalid session token."
+        )
 
     async def initdb(self):
         psql_config = self.config["psql"]

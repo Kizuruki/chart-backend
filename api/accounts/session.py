@@ -1,4 +1,6 @@
 donotload = False
+import uuid, json, base64, hashlib
+import hmac
 
 from fastapi import APIRouter, Request, HTTPException, status
 
@@ -23,13 +25,29 @@ def setup():
         """
         if request.headers.get(request.app.auth_header) != request.app.auth:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="why?")
+        session_key_data = {"id": str(uuid.uuid4()), "user_id": data.id, "type": "game"}
+        encoded_key = base64.urlsafe_b64encode(
+            json.dumps(session_key_data).encode()
+        ).decode()
+        signature = hmac.new(
+            request.app.token_secret_key.encode(), encoded_key.encode(), hashlib.sha256
+        ).hexdigest()
+        session_key = f"{encoded_key}.{signature}"
         query, args = (
             accounts.generate_create_account_if_not_exists_and_new_session_query(
-                data.id, int(data.handle), data.type
+                session_key, data.id, int(data.handle), data.type
             )
         )
 
         async with request.app.db.acquire() as conn:
+            result = await conn.fetchrow(query, *args)
+            if result:
+                session_key = result["session_key"]
+                expiry = int(result["expires"])
+                print(session_key, data.id)
+                return {"session": session_key, "expiry": expiry}
+            # account was created
+            # run it again
             result = await conn.fetchrow(query, *args)
             if result:
                 session_key = result["session_key"]

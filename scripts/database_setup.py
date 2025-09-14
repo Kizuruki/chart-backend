@@ -34,6 +34,7 @@ async def main():
         #     END LOOP;
         # END $$;
         # """,
+        """CREATE EXTENSION IF NOT EXISTS pg_trgm;""",
         """DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'chart_status') THEN
@@ -45,7 +46,6 @@ END $$;""",
     sonolus_handle BIGINT NOT NULL,
     discord_id BIGINT,
     patreon_id TEXT,
-    previous_likes TEXT[] DEFAULT '{}',
     chart_upload_cooldown TIMESTAMP,
     sonolus_sessions JSONB,
     oauth_details JSONB,
@@ -59,11 +59,12 @@ END $$;""",
     id TEXT PRIMARY KEY,
     rating INT DEFAULT 1,
     author TEXT REFERENCES accounts(sonolus_id) ON DELETE CASCADE,
+    chart_author TEXT NOT NULL,
     description TEXT,
     title TEXT NOT NULL,
     artists TEXT,
     tags TEXT[] DEFAULT '{}',
-    likes BIGINT[] DEFAULT '{}',
+    like_count BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status chart_status NOT NULL,
@@ -72,6 +73,12 @@ END $$;""",
     chart_file_hash TEXT NOT NULL,
     preview_file_hash TEXT,
     background_file_hash TEXT
+);""",
+        """CREATE TABLE IF NOT EXISTS chart_likes (
+    chart_id TEXT NOT NULL REFERENCES charts(id) ON DELETE CASCADE,
+    sonolus_id TEXT NOT NULL REFERENCES accounts(sonolus_id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+    PRIMARY KEY (chart_id, sonolus_id)
 );""",
         """CREATE TABLE IF NOT EXISTS comments (
     id TEXT PRIMARY KEY,
@@ -88,22 +95,38 @@ END $$;""",
     chart_id TEXT REFERENCES charts(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );""",
-        """CREATE OR REPLACE FUNCTION remove_likes_on_account_delete()
+        """CREATE OR REPLACE FUNCTION update_like_count()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF OLD.previous_likes IS NOT NULL THEN
-        UPDATE charts
-        SET likes = array_remove(likes, OLD.sonolus_id)
-        WHERE id = ANY(OLD.previous_likes)
-          AND id IN (SELECT id FROM charts);
+    IF TG_OP = 'INSERT' THEN
+        UPDATE charts SET like_count = like_count + 1 WHERE id = NEW.chart_id;
+    ELSIF TG_OP = 'DELETE' THEN
+        UPDATE charts SET like_count = like_count - 1 WHERE id = OLD.chart_id;
     END IF;
     RETURN NULL;
 END;
-$$ LANGUAGE plpgsql;""",
-        """CREATE TRIGGER account_delete_trigger
-AFTER DELETE ON accounts
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER trg_update_like_count
+AFTER INSERT OR DELETE ON chart_likes
 FOR EACH ROW
-EXECUTE FUNCTION remove_likes_on_account_delete();""",
+EXECUTE FUNCTION update_like_count();""",
+        """-- Scalar columns: B-Tree
+CREATE INDEX IF NOT EXISTS idx_charts_status ON charts(status);
+CREATE INDEX IF NOT EXISTS idx_charts_rating ON charts(rating);
+CREATE INDEX IF NOT EXISTS idx_charts_created_at ON charts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_charts_like_count ON charts(like_count DESC);
+CREATE INDEX IF NOT EXISTS idx_chart_likes_user ON chart_likes(sonolus_id);
+CREATE INDEX IF NOT EXISTS idx_chart_likes_chart ON chart_likes(chart_id);
+
+-- GIN
+CREATE INDEX IF NOT EXISTS idx_charts_tags ON charts USING GIN(tags);
+
+-- Text columns with pg_trgm for fast ILIKE
+CREATE INDEX IF NOT EXISTS idx_charts_title_trgm ON charts USING GIN (LOWER(title) gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_charts_description_trgm ON charts USING GIN (LOWER(description) gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_charts_artists_trgm ON charts USING GIN (LOWER(artists) gin_trgm_ops);
+""",
     ]
 
     async with db.acquire() as connection:

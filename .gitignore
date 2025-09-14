@@ -1,6 +1,9 @@
 # Private files
 config.yml
 
+# script asset files, make em urselves
+scripts/assets/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
