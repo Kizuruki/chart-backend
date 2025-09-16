@@ -12,8 +12,7 @@ from helpers.config_loader import get_config
 from core import ChartFastAPI
 
 config = get_config()
-debug = config.get("debug", False)
-VERSION_REGEX = r"^\d+\.\d+\.\d+$"
+debug = config.get("server", {}).get("debug")
 
 app = ChartFastAPI(config=config)
 app.add_middleware(
@@ -108,6 +107,8 @@ def load_routes(folder, cleanup: bool = True):
             if isinstance(route.router.tags, list)
             else [route_version]
         )
+
+        route.setup()
 
         app.include_router(route.router)
 

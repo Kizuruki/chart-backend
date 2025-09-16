@@ -35,6 +35,8 @@ async def main():
         # END $$;
         # """,
         """CREATE EXTENSION IF NOT EXISTS pg_trgm;""",
+        # Commented: requires super user!
+        # """CREATE EXTENSION IF NOT EXISTS pg_cron;""",
         """DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'chart_status') THEN
@@ -162,6 +164,18 @@ CREATE INDEX IF NOT EXISTS idx_charts_title_trgm ON charts USING GIN (LOWER(titl
 CREATE INDEX IF NOT EXISTS idx_charts_description_trgm ON charts USING GIN (LOWER(description) gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_charts_artists_trgm ON charts USING GIN (LOWER(artists) gin_trgm_ops);
 """,
+        """CREATE TABLE IF NOT EXISTS external_login_ids (
+    id_key TEXT NOT NULL PRIMARY KEY,
+    session_key TEXT,
+    expires_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP + INTERVAL '6 minutes'
+);
+CREATE INDEX IF NOT EXISTS idx_expires_at ON external_login_ids (expires_at);""",
+        # """SELECT cron.schedule(
+        #     'delete_expired_login_ids',
+        #     '* * * * *', -- every minute
+        #     'DELETE FROM external_login_ids WHERE expires_at < CURRENT_TIMESTAMP;'
+        # );"""
+        # superuser to schedule
     ]
 
     async with db.acquire() as connection:

@@ -8,7 +8,7 @@ server:
   auth: "required auth"
   auth-header: "random auth header (CANNOT BE 'authorization'!)"
   token-secret-key: "256bit key (or whatever)"
-  debug: True
+  debug: false
 s3:
   base-url: "..." # public access url where public can access your items
   endpoint: "..." # endpoint for requests

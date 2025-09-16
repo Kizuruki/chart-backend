@@ -28,7 +28,12 @@ class Like(BaseModel):
 
 
 class ServiceUserProfileWithType(ServiceUserProfile):
-    type: Literal["game", "external"]
+    type: Literal["game"]
+
+
+class ExternalServiceUserProfileWithType(ServiceUserProfile):
+    type: Literal["external"]
+    id_key: str
 
 
 class ChartVisibilityData(BaseModel):
