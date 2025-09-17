@@ -14,6 +14,7 @@ def setup():
     @router.patch("/")
     async def main(
         request: Request,
+        id: str,
         data: ChartVisibilityData,
     ):
         app: ChartFastAPI = request.app
@@ -43,7 +44,7 @@ def setup():
                 )
 
         query, args = charts.generate_update_status_query(
-            chart_id=data.chart_id,
+            chart_id=id,
             status=data.status,
             sonolus_id=session_data.user_id,
         )
@@ -54,5 +55,5 @@ def setup():
                 return {"id": result["id"]}
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f'Chart with ID "{data.chart_id}" not found for this user.',
+                detail=f'Chart with ID "{id}" not found for this user.',
             )

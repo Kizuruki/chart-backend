@@ -37,7 +37,6 @@ class ExternalServiceUserProfileWithType(ServiceUserProfile):
 
 
 class ChartVisibilityData(BaseModel):
-    chart_id: str
     status: Literal["PUBLIC", "PRIVATE", "UNLISTED"]
 
 
@@ -55,8 +54,6 @@ class ChartUploadData(BaseModel):
 
 
 class ChartEditData(BaseModel):
-    chart_id: str
-
     author: Optional[str] = None
     rating: Optional[int] = None
     title: Optional[str] = None

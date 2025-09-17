@@ -1,10 +1,9 @@
 # WARNING: THIS ISN'T IN requirements.txt
 import requests, json
 
-url = "http://localhost:39000/api/charts/visibility/"
+url = "http://localhost:39000/api/charts/5b5fedc93f2d4688a5d100b1eab8a6d7/visibility/"
 
 data = {
-    "chart_id": "5b5fedc93f2d4688a5d100b1eab8a6d7",
     "status": "PUBLIC",
 }
 

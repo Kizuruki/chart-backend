@@ -1,12 +1,10 @@
 # WARNING: THIS ISN'T IN requirements.txt
 import requests, json
 
-url = "http://localhost:39000/api/charts/edit/"
+url = "http://localhost:39000/api/charts/84adfd40c9504f4ca69347978f870023/edit/"
 
 """
 class ChartEditData(BaseModel):
-    chart_id: str
-
     author: Optional[str] = None
     rating: Optional[int] = None
     title: Optional[str] = None
@@ -24,7 +22,6 @@ class ChartEditData(BaseModel):
     includes_chart: Optional[bool] = False
 """
 chart_data = {
-    "chart_id": "84adfd40c9504f4ca69347978f870023",
     "rating": 10,
     "title": "Cool Level",
     "artists": "Cool Artist",
