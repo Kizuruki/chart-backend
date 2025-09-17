@@ -13,7 +13,7 @@ def setup():
     async def main(
         request: Request,
         type: Literal["random", "quick", "advanced"] = Query("random"),
-        page: int = Query(0, ge=1),
+        page: int = Query(0, ge=0),
         min_rating: Optional[int] = Query(None),
         max_rating: Optional[int] = Query(None),
         tags: Optional[List[str]] = Query(None),
@@ -56,6 +56,8 @@ def setup():
                 page=page, items_per_page=item_page_count, meta_includes=meta_includes
             )
         else:
+            if sort_by == "abc":
+                sort_order = "asc" if sort_order == "desc" else "desc"
             query, args = charts.generate_get_chart_list_query(
                 page=page,
                 items_per_page=item_page_count,
