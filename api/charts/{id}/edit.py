@@ -4,6 +4,8 @@ from fastapi import APIRouter, Request, HTTPException, status, UploadFile, Form
 
 from database import charts, accounts
 
+import sonolus_converters
+
 from helpers.models import ChartEditData
 from helpers.hashing import calculate_sha1
 from helpers.backgrounds import generate_backgrounds
@@ -85,21 +87,37 @@ def setup():
                     detail="Uploaded files exceed file size limit.",
                 )
             if data.includes_chart:
-                # XXX: only needed before file converter
-                start = await chart_file.read(2)
+                valid, sus, usc, leveldata, _ = sonolus_converters.detect(
+                    (await chart_file.read())
+                )
                 await chart_file.seek(0)
-                if start[:2] == b"\x1f\x8b":  # GZIP magic number
-                    pass
-                else:
+                if not valid:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail="Invalid file format.",
                     )
                 chart_bytes = await chart_file.read()
-                # TODO: implement level converter
-                # pip install git+https://github.com/UntitledCharts/sonolus-level-converters
-                # except it's not done :heh:
-                # for testing purpouse a real level packer :sob:
+
+                def convert() -> bytes:
+                    if sus:
+                        converted = io.BytesIO()
+                        score = sonolus_converters.sus.load(
+                            io.TextIOWrapper(io.BytesIO(chart_bytes), encoding="utf-8")
+                        )
+                        sonolus_converters.next_sekai.export(converted, score)
+                    elif usc:
+                        converted = io.BytesIO()
+                        score = sonolus_converters.usc.load(
+                            io.TextIOWrapper(io.BytesIO(chart_bytes), encoding="utf-8")
+                        )
+                        sonolus_converters.next_sekai.export(converted, score)
+                    elif leveldata:
+                        # assume gzipped already
+                        # XXX: check
+                        return chart_bytes
+                    return converted.read()
+
+                chart_bytes = await app.run_blocking(convert)
                 chart_hash = calculate_sha1(chart_bytes)
                 if not chart_hash == old_chart_data["chart_file_hash"]:
                     s3_uploads.append(

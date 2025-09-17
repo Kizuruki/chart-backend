@@ -1,7 +1,8 @@
 fastapi
 uvicorn
 pyyaml
-git+https://github.com/YumYummity/pjsekai-background-gen-pillow-upd
+git+https://github.com/UntitledCharts/pjsekai-background-gen-pillow-upd
+git+https://github.com/UntitledCharts/sonolus-level-converters
 pillow
 asyncpg
 aioboto3

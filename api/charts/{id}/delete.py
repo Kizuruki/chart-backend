@@ -1,7 +1,7 @@
 import asyncio
 from fastapi import APIRouter, Request, HTTPException, status
 
-from database import charts, accounts
+from database import charts
 from helpers.session import Session
 
 from core import ChartFastAPI
@@ -14,7 +14,9 @@ def setup():
     async def main(
         request: Request,
         id: str,
-        session=Session(enforce_auth=True, enforce_type="external"),
+        session=Session(
+            enforce_auth=True, enforce_type="external", allow_banned_users=False
+        ),
     ):
         app: ChartFastAPI = request.app
 
@@ -24,12 +26,6 @@ def setup():
             )
 
         chart_id = id.removeprefix("UnCh-")
-
-        user = await session.user()
-        if user["banned"]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="User banned."
-            )
 
         query, args = charts.generate_delete_chart_query(
             chart_id, session.sonolus_id, confirm_change=True

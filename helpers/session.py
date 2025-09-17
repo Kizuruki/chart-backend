@@ -9,9 +9,11 @@ class Session:
         self,
         enforce_auth: bool = False,
         enforce_type: Literal["game", "external", False] = False,
+        allow_banned_users: bool = True,
     ):
         self.enforce_auth = enforce_auth
         self.enforce_type = enforce_type
+        self.allow_banned_users = allow_banned_users
         self._user_fetched = False
         self._user = None
 
@@ -51,5 +53,11 @@ class Session:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token type."
             )
+
+        if not self.allow_banned_users:
+            if (await self.user())["banned"]:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="User banned."
+                )
 
         return self
