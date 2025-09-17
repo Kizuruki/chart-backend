@@ -82,7 +82,7 @@ def setup():
                 page_count = (total + item_page_count - 1) // item_page_count
                 data = [dict(row) for row in rows]
             else:
-                # XXX: todo: past max pages
+                # XXX: todo: past max pages error
                 total = 0
                 page_count = 0
                 data = []
