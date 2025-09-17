@@ -21,7 +21,7 @@ class ChartFastAPI(FastAPI):
             aws_secret_access_key=config["s3"]["secret-access-key"],
             region_name=config["s3"]["location"],
         )
-        self.s3_session_getter = lambda: self.s3_session.client(
+        self.s3_session_getter = lambda: self.s3_session.resource(
             service_name="s3",
             endpoint_url=self.config["s3"]["endpoint"],
         )

@@ -67,12 +67,6 @@ def generate_get_chart_list_query(
     sonolus_id: Optional[str] = None,
     meta_includes: Optional[str] = None,
 ) -> Tuple[str, Tuple]:
-    """
-    Generate a SELECT query for retrieving charts with advanced filtering and sorting.
-    Includes 'liked' boolean if sonolus_id is provided.
-    """
-
-    # Base query
     base_query = """
         SELECT 
             c.id, 
@@ -80,6 +74,7 @@ def generate_get_chart_list_query(
             c.artists, 
             c.description, 
             c.tags,
+            c.author,
             c.jacket_file_hash, 
             c.music_file_hash, 
             c.chart_file_hash,
@@ -94,7 +89,6 @@ def generate_get_chart_list_query(
             COUNT(*) OVER() AS total_count
     """
 
-    # Include liked column if sonolus_id is passed
     if sonolus_id:
         base_query += """,
             CASE WHEN cl.sonolus_id IS NULL THEN FALSE ELSE TRUE END AS liked
@@ -105,21 +99,23 @@ def generate_get_chart_list_query(
         JOIN accounts a ON c.author = a.sonolus_id
     """
 
-    # Join chart_likes if needed
     if liked_by:
         base_query += " JOIN chart_likes clb ON c.id = clb.chart_id"
-    if sonolus_id:
-        base_query += f" LEFT JOIN chart_likes cl ON c.id = cl.chart_id AND cl.sonolus_id = ${len(sonolus_id)+1}"
 
     conditions = []
-    params = []
+    params: List = []
 
-    # Status filter
+    if sonolus_id:
+        params.append(sonolus_id)
+        # now len(params) is the correct $N placeholder
+        base_query += f" LEFT JOIN chart_likes cl ON c.id = cl.chart_id AND cl.sonolus_id = ${len(params)}"
+
+    # Status
     if status:
         params.append(status)
-        conditions.append(f"c.status = ${len(params)}")
+        conditions.append(f"c.status = ${len(params)}::chart_status")
 
-    # Rating filters
+    # Ratings
     if min_rating is not None:
         params.append(min_rating)
         conditions.append(f"c.rating >= ${len(params)}")
@@ -127,12 +123,12 @@ def generate_get_chart_list_query(
         params.append(max_rating)
         conditions.append(f"c.rating <= ${len(params)}")
 
-    # Tag filter
+    # Tags as Postgres array
     if tags:
         params.append(tags)
-        conditions.append(f"c.tags @> ${len(params)}")
+        conditions.append(f"c.tags @> ${len(params)}::text[]")
 
-    # Like count filters
+    # Likes
     if min_likes is not None:
         params.append(min_likes)
         conditions.append(f"c.like_count >= ${len(params)}")
@@ -167,7 +163,6 @@ def generate_get_chart_list_query(
     if conditions:
         base_query += " WHERE " + " AND ".join(conditions)
 
-    # Sorting
     sort_column = {
         "created_at": "c.created_at",
         "rating": "c.rating",
@@ -176,19 +171,13 @@ def generate_get_chart_list_query(
         "abc": "c.title",
     }.get(sort_by, "c.created_at")
 
-    # A-Z is ASC, else DESC for Z-A
-    # Highest at the top is DESC though, so DESC works for any other sorting
-    sort_order = "DESC" if sort_order.lower() == "desc" else "ASC"
-    base_query += f" ORDER BY {sort_column} {sort_order}"
+    sort_order_sql = "DESC" if sort_order.lower() == "desc" else "ASC"
+    base_query += f" ORDER BY {sort_column} {sort_order_sql}"
 
-    # Pagination
+    # Pagination (always int)
     params.append(items_per_page)
     params.append(page * items_per_page)
     base_query += f" LIMIT ${len(params)-1} OFFSET ${len(params)}"
-
-    # Include sonolus_id param at the end if needed
-    if sonolus_id:
-        params = (*params, sonolus_id)
 
     return base_query, tuple(params)
 

@@ -4,7 +4,7 @@ import requests, json
 url = "http://localhost:39000/api/charts/visibility/"
 
 data = {
-    "chart_id": "84adfd40c9504f4ca69347978f870023",
+    "chart_id": "5b5fedc93f2d4688a5d100b1eab8a6d7",
     "status": "PUBLIC",
 }
 
@@ -12,7 +12,7 @@ response = requests.patch(
     url,
     json=data,
     headers={
-        "authorization": "eyJpZCI6ICJkYzU0MmQ0NS04YmNkLTQ1NmUtOWRmOS00MzVkYjkyOGVmY2QiLCAidXNlcl9pZCI6ICIxMTIwNjZiZWI0YjdhNDlkZTNlNGNlNjRlMmQ1YWRiZmJmNWNmZjZkM2RmMTI2YjVkYTg3NDhmNzZhZTZjNzg5IiwgInR5cGUiOiAiZ2FtZSJ9.60b8f11e5b2bf55827362b16e179c33734cc3d4d2771e235271ffeb8a23a52c6"
+        "authorization": "eyJpZCI6ICJlMWJhNDFhNi1hMDQzLTQ5MTktYTQ2Ni05YTZkMWVkZWExMTMiLCAidXNlcl9pZCI6ICIxMTIwNjZiZWI0YjdhNDlkZTNlNGNlNjRlMmQ1YWRiZmJmNWNmZjZkM2RmMTI2YjVkYTg3NDhmNzZhZTZjNzg5IiwgInR5cGUiOiAiZ2FtZSJ9.f06deb0a5181b98bdcd960760d823f5556ff625b0917330b8b28d286ff8d0006"
     },
 )
 
