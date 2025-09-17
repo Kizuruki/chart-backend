@@ -116,7 +116,7 @@ def load_routes(folder, cleanup: bool = True):
 
 
 async def startup_event():
-    await app.initdb()
+    await app.init()
     folder = "api"
     if len(os.listdir(folder)) == 0:
         print("[WARN] No routes loaded.")

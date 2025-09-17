@@ -6,3 +6,5 @@ pillow
 asyncpg
 aioboto3
 authlib
+itsdangerous
+python-multipart
