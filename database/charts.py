@@ -65,6 +65,7 @@ def generate_get_chart_list_query(
     ] = "created_at",
     sort_order: Literal["desc", "asc"] = "desc",
     sonolus_id: Optional[str] = None,
+    meta_includes: Optional[str] = None,
 ) -> Tuple[str, Tuple]:
     """
     Generate a SELECT query for retrieving charts with advanced filtering and sorting.
@@ -154,6 +155,14 @@ def generate_get_chart_list_query(
     if artists_includes:
         params.append(f"%{artists_includes.lower()}%")
         conditions.append(f"LOWER(c.artists) LIKE ${len(params)}")
+    if meta_includes:
+        params.append(f"%{meta_includes.lower()}%")
+        placeholder = f"${len(params)}"
+        conditions.append(
+            f"(LOWER(c.title) LIKE {placeholder} "
+            f"OR LOWER(c.description) LIKE {placeholder} "
+            f"OR LOWER(c.artists) LIKE {placeholder})"
+        )
 
     if conditions:
         base_query += " WHERE " + " AND ".join(conditions)
