@@ -21,7 +21,7 @@ def setup():
 
         if auth:
             session_data = app.decode_key(auth)
-            sonolus_id = session_data["user_id"]
+            sonolus_id = session_data.user_id
 
         if len(id) != 37 or not id.startswith("UnCh-") or not id[5:].isalnum():
             raise HTTPException(

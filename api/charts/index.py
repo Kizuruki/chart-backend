@@ -41,7 +41,7 @@ def setup():
 
         if auth:
             session_data = app.decode_key(auth)
-            sonolus_id = session_data["user_id"]
+            sonolus_id = session_data.user_id
         item_page_count = 10
         if type == "random":
             query, args = charts.generate_get_random_charts_query(

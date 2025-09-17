@@ -24,12 +24,12 @@ def setup():
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in."
             )
         session_data = app.decode_key(auth)
-        if session_data["type"] != "external":
+        if session_data.type != "external":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token type."
             )
         query, args = accounts.generate_get_account_from_session_query(
-            session_data["user_id"], auth, "external"
+            session_data.user_id, auth, "external"
         )
         async with app.db.acquire() as conn:
             result = await conn.fetchrow(query, *args)
@@ -45,7 +45,7 @@ def setup():
         query, args = charts.generate_update_status_query(
             chart_id=data.chart_id,
             status=data.status,
-            sonolus_id=session_data["user_id"],
+            sonolus_id=session_data.user_id,
         )
 
         async with app.db.acquire() as conn:
