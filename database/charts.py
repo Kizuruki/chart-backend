@@ -284,18 +284,29 @@ def generate_get_chart_by_id_query(
 
 
 def generate_delete_chart_query(
-    chart_id: str, confirm_change: bool = False
+    chart_id: str, sonolus_id: str = None, confirm_change: bool = False
 ) -> Tuple[str, Tuple[str]]:
     if not confirm_change:
         raise ValueError(
             "Deletion not confirmed. Ensure you are deleting the old files from S3 to ensure there is no hanging files."
         )
-    return """
-        DELETE FROM charts
-        WHERE id = $1;
-    """, (
-        chart_id,
-    )
+    if not sonolus_id:
+        return """
+            DELETE FROM charts
+            WHERE id = $1
+            RETURNING id;
+        """, (
+            chart_id,
+        )
+    else:
+        return """
+            DELETE FROM charts
+            WHERE id = $1 AND author = $2
+            RETURNING id;
+        """, (
+            chart_id,
+            sonolus_id,
+        )
 
 
 def generate_update_metadata_query(
