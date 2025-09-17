@@ -23,7 +23,7 @@ def setup():
 
         if auth:
             session_data = app.decode_key(auth)
-            sonolus_id = session_data["user_id"]
+            sonolus_id = session_data.user_id
 
         if len(id) != 37 or not id.startswith("UnCh-") or not id[5:].isalnum():
             raise HTTPException(
@@ -38,7 +38,7 @@ def setup():
             query, args = charts.generate_remove_like_query(chart_id, sonolus_id)
         async with app.db.acquire() as conn:
             check_query, check_args = accounts.generate_get_account_from_session_query(
-                session_data["user_id"], auth, "game"
+                session_data.user_id, auth, "game"
             )
 
             result = await conn.fetchrow(check_query, *check_args)

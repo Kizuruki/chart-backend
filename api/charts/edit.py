@@ -41,12 +41,12 @@ def setup():
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in."
             )
         session_data = app.decode_key(auth)
-        if session_data["type"] != "external":
+        if session_data.type != "external":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token type."
             )
         query, args = accounts.generate_get_account_from_session_query(
-            session_data["user_id"], auth, "external"
+            session_data.user_id, auth, "external"
         )
         async with app.db.acquire() as conn:
             result = await conn.fetchrow(query, *args)
@@ -103,7 +103,7 @@ def setup():
                 if not chart_hash == old_chart_data["chart_file_hash"]:
                     s3_uploads.append(
                         {
-                            "path": f"{session_data['user_id']}/{data.chart_id}/{chart_hash}",
+                            "path": f"{session_data.user_id}/{data.chart_id}/{chart_hash}",
                             "hash": chart_hash,
                             "bytes": chart_bytes,
                             "content-type": "application/gzip",
@@ -131,7 +131,7 @@ def setup():
                 if not jacket_hash == old_chart_data["jacket_file_hash"]:
                     s3_uploads.append(
                         {
-                            "path": f"{session_data['user_id']}/{data.chart_id}/{jacket_hash}",
+                            "path": f"{session_data.user_id}/{data.chart_id}/{jacket_hash}",
                             "hash": jacket_hash,
                             "bytes": jacket_bytes,
                             "content-type": "image/png",
@@ -142,7 +142,7 @@ def setup():
                     v1_hash = calculate_sha1(v1)
                     s3_uploads.append(
                         {
-                            "path": f"{session_data['user_id']}/{data.chart_id}/{v1_hash}",
+                            "path": f"{session_data.user_id}/{data.chart_id}/{v1_hash}",
                             "hash": v1_hash,
                             "bytes": v1,
                             "content-type": "image/png",
@@ -151,7 +151,7 @@ def setup():
                     v3_hash = calculate_sha1(v3)
                     s3_uploads.append(
                         {
-                            "path": f"{session_data['user_id']}/{data.chart_id}/{v3_hash}",
+                            "path": f"{session_data.user_id}/{data.chart_id}/{v3_hash}",
                             "hash": v3_hash,
                             "bytes": v3,
                             "content-type": "image/png",
@@ -180,7 +180,7 @@ def setup():
                 if not audio_hash == old_chart_data["music_file_hash"]:
                     s3_uploads.append(
                         {
-                            "path": f"{session_data['user_id']}/{data.chart_id}/{audio_hash}",
+                            "path": f"{session_data.user_id}/{data.chart_id}/{audio_hash}",
                             "hash": audio_hash,
                             "bytes": audio_bytes,
                             "content-type": "audio/mpeg",
@@ -208,7 +208,7 @@ def setup():
                 if not preview_hash == old_chart_data["preview_file_hash"]:
                     s3_uploads.append(
                         {
-                            "path": f"{session_data['user_id']}/{data.chart_id}/{preview_hash}",
+                            "path": f"{session_data.user_id}/{data.chart_id}/{preview_hash}",
                             "hash": preview_hash,
                             "bytes": preview_bytes,
                             "content-type": "audio/mpeg",
@@ -241,7 +241,7 @@ def setup():
                 if not background_hash == old_chart_data["background_file_hash"]:
                     s3_uploads.append(
                         {
-                            "path": f"{session_data['user_id']}/{data.chart_id}/{background_hash}",
+                            "path": f"{session_data.user_id}/{data.chart_id}/{background_hash}",
                             "hash": background_hash,
                             "bytes": background_bytes,
                             "content-type": "image/png",
@@ -291,7 +291,7 @@ def setup():
                 for file_hash in deleted_hashes:
                     if file_hash in alr_deleted_hashes:
                         continue
-                    key = f"{session_data['user_id']}/{data.chart_id}/{file_hash}"
+                    key = f"{session_data.user_id}/{data.chart_id}/{file_hash}"
                     obj = bucket.Object(key)
                     task = obj.delete()
                     tasks.append(task)

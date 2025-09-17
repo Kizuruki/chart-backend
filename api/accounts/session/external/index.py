@@ -28,7 +28,7 @@ def setup():
         if request.headers.get(app.auth_header) != app.auth:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="why?")
 
-        id_data = app.decode_key(data.id_key)
+        id_data = app.decode_key(data.id_key, return_dict=True)
 
         session_key_data = {
             "id": id_data["id"],

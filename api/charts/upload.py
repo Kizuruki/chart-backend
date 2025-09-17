@@ -41,12 +41,12 @@ def setup():
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in."
             )
         session_data = app.decode_key(auth)
-        if session_data["type"] != "external":
+        if session_data.type != "external":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token type."
             )
         query, args = accounts.generate_get_account_from_session_query(
-            session_data["user_id"], auth, "external"
+            session_data.user_id, auth, "external"
         )
         async with app.db.acquire() as conn:
             result = await conn.fetchrow(query, *args)
@@ -101,7 +101,7 @@ def setup():
         jacket_hash = calculate_sha1(jacket_bytes)
         s3_uploads.append(
             {
-                "path": f"{session_data['user_id']}/{chart_id}/{jacket_hash}",
+                "path": f"{session_data.user_id}/{chart_id}/{jacket_hash}",
                 "hash": jacket_hash,
                 "bytes": jacket_bytes,
                 "content-type": "image/png",
@@ -125,7 +125,7 @@ def setup():
         chart_hash = calculate_sha1(chart_bytes)
         s3_uploads.append(
             {
-                "path": f"{session_data['user_id']}/{chart_id}/{chart_hash}",
+                "path": f"{session_data.user_id}/{chart_id}/{chart_hash}",
                 "hash": chart_hash,
                 "bytes": chart_bytes,
                 "content-type": "application/gzip",
@@ -136,7 +136,7 @@ def setup():
         audio_hash = calculate_sha1(audio_bytes)
         s3_uploads.append(
             {
-                "path": f"{session_data['user_id']}/{chart_id}/{audio_hash}",
+                "path": f"{session_data.user_id}/{chart_id}/{audio_hash}",
                 "hash": audio_hash,
                 "bytes": audio_bytes,
                 "content-type": "audio/mpeg",
@@ -148,7 +148,7 @@ def setup():
             preview_hash = calculate_sha1(preview_bytes)
             s3_uploads.append(
                 {
-                    "path": f"{session_data['user_id']}/{chart_id}/{preview_hash}",
+                    "path": f"{session_data.user_id}/{chart_id}/{preview_hash}",
                     "hash": preview_hash,
                     "bytes": preview_bytes,
                     "content-type": "audio/mpeg",
@@ -160,7 +160,7 @@ def setup():
             background_hash = calculate_sha1(background_bytes)
             s3_uploads.append(
                 {
-                    "path": f"{session_data['user_id']}/{chart_id}/{background_hash}",
+                    "path": f"{session_data.user_id}/{chart_id}/{background_hash}",
                     "hash": background_hash,
                     "bytes": background_bytes,
                     "content-type": "image/png",
@@ -170,7 +170,7 @@ def setup():
         v1_hash = calculate_sha1(v1)
         s3_uploads.append(
             {
-                "path": f"{session_data['user_id']}/{chart_id}/{v1_hash}",
+                "path": f"{session_data.user_id}/{chart_id}/{v1_hash}",
                 "hash": v1_hash,
                 "bytes": v1,
                 "content-type": "image/png",
@@ -179,7 +179,7 @@ def setup():
         v3_hash = calculate_sha1(v3)
         s3_uploads.append(
             {
-                "path": f"{session_data['user_id']}/{chart_id}/{v3_hash}",
+                "path": f"{session_data.user_id}/{chart_id}/{v3_hash}",
                 "hash": v3_hash,
                 "bytes": v3,
                 "content-type": "image/png",
@@ -205,7 +205,7 @@ def setup():
             await asyncio.gather(*tasks)
         query, args = charts.generate_create_chart_query(
             chart_id=chart_id,
-            author=session_data["user_id"],
+            author=session_data.user_id,
             rating=data.rating,
             description=data.description,
             chart_author=data.author,
