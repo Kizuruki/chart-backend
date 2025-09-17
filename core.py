@@ -60,7 +60,9 @@ class ChartFastAPI(FastAPI):
             ssl="disable",  # XXX: todo, lazy for now
         )
 
-    def decode_key(self, session_key: str, return_dict: bool = False) -> Union[SessionKeyData, dict]:
+    def decode_key(
+        self, session_key: str, return_dict: bool = False
+    ) -> Union[SessionKeyData, dict]:
         try:
             encoded_data, signature = session_key.rsplit(".", 1)
             recalculated_signature = hmac.new(
@@ -69,8 +71,8 @@ class ChartFastAPI(FastAPI):
             if recalculated_signature == signature:
                 decoded_data = base64.urlsafe_b64decode(encoded_data).decode()
                 return (
-                    json.loads(decoded_data) 
-                    if return_dict 
+                    json.loads(decoded_data)
+                    if return_dict
                     else SessionKeyData.model_validate_json(decoded_data)
                 )
         except Exception:

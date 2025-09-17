@@ -73,6 +73,7 @@ class ChartEditData(BaseModel):
     includes_jacket: Optional[bool] = False
     includes_chart: Optional[bool] = False
 
+
 class SessionKeyData(BaseModel):
     id: str
     user_id: str

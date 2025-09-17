@@ -7,15 +7,13 @@ from core import ChartFastAPI
 
 router = APIRouter()
 
+
 def setup():
-    @router.delete('/')
+    @router.delete("/")
     async def main(
         request: Request,
         id: str,
-        session = Session(
-            enforce_auth=True,
-            enforce_type="external"
-        )
+        session=Session(enforce_auth=True, enforce_type="external"),
     ):
         app: ChartFastAPI = request.app
 
@@ -27,4 +25,4 @@ def setup():
         chart_id = id.removeprefix("UnCh-")
 
         async with app.db.acquire() as conn:
-            ... # TODO
+            ...  # TODO

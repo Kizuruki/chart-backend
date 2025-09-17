@@ -3,11 +3,12 @@ from core import ChartFastAPI
 from typing import Literal
 from database import accounts
 
+
 class Session:
     def __init__(
         self,
         enforce_auth: bool = False,
-        enforce_type: Literal["game", "external", False] = False
+        enforce_type: Literal["game", "external", False] = False,
     ):
         self.enforce_auth = enforce_auth
         self.enforce_type = enforce_type
@@ -25,9 +26,10 @@ class Session:
 
                 if not result and self.enforce_auth:
                     raise HTTPException(
-                        status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in."
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Not logged in.",
                     )
-                
+
                 self._user = result
                 self._user_fetched = True
 
@@ -38,12 +40,16 @@ class Session:
         self.auth = authorization
 
         if not authorization and self.enforce_auth:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in.")
-        
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in."
+            )
+
         self.session_data = self.app.decode_key(authorization)
         self.sonolus_id = self.session_data.user_id
 
         if self.enforce_type and self.session_data.type != self.enforce_type:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Invalid token type.')
-        
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token type."
+            )
+
         return self

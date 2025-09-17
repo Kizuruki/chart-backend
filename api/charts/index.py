@@ -73,6 +73,7 @@ def setup():
                 artists_includes=artists_includes,
                 sort_by=sort_by,
                 sort_order=sort_order,
+                meta_includes=meta_includes,
                 sonolus_id=sonolus_id,
             )
         async with app.db.acquire() as conn:
