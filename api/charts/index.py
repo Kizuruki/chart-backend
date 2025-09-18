@@ -29,7 +29,7 @@ def setup():
             "created_at", "rating", "likes", "decaying_likes", "abc"
         ] = Query("created_at"),
         sort_order: Literal["desc", "asc"] = Query("desc"),
-        status: Literal["PUBLIC", "UNLISTED", "PRIVATE", None] = Query("PUBLIC"),
+        status: Literal["PUBLIC", "UNLISTED", "PRIVATE", "ALL"] = Query("PUBLIC"),
         meta_includes: Optional[str] = Query(None),
         session=Session(enforce_auth=False, allow_banned_users=False),
     ):
@@ -38,6 +38,8 @@ def setup():
         sonolus_id = session.sonolus_id
 
         use_owned_by = False
+        if status == "ALL":
+            status = None
         if status != "PUBLIC":
             if status == None:
                 if sonolus_id:
@@ -70,8 +72,14 @@ def setup():
             data = [dict(row) for row in rows] if rows else []
             return {"data": data, "asset_base_url": app.s3_asset_base_url}
         elif type == "quick":
+            if sort_by == "abc":
+                sort_order = "asc" if sort_order == "desc" else "desc"
             query, args = charts.generate_get_chart_list_query(
-                page=page, items_per_page=item_page_count, meta_includes=meta_includes
+                page=page,
+                items_per_page=item_page_count,
+                meta_includes=meta_includes,
+                sort_by=sort_by,
+                sort_order=sort_order,
             )
         else:
             if sort_by == "abc":
