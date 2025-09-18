@@ -60,4 +60,7 @@ class Session:
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN, detail="User banned."
                     )
+        else:
+            self.session_data = None
+            self.sonolus_id = None
         return self
