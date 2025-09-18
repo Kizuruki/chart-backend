@@ -1,9 +1,11 @@
 from typing import Optional, List, Literal
 
-from fastapi import APIRouter, Request, HTTPException, status, Query
+from fastapi import APIRouter, Request, HTTPException, status as fstatus, Query
 from core import ChartFastAPI
 
 from database import charts
+
+from helpers.session import Session
 
 router = APIRouter()
 
@@ -27,23 +29,39 @@ def setup():
             "created_at", "rating", "likes", "decaying_likes", "abc"
         ] = Query("created_at"),
         sort_order: Literal["desc", "asc"] = Query("desc"),
-        sonolus_id: Optional[str] = Query(None),
-        status: Literal["PUBLIC", "UNLISTED", "PRIVATE"] = Query("PUBLIC"),
+        status: Literal["PUBLIC", "UNLISTED", "PRIVATE", None] = Query("PUBLIC"),
         meta_includes: Optional[str] = Query(None),
+        session=Session(enforce_auth=False, allow_banned_users=False),
     ):
         app: ChartFastAPI = request.app
 
-        auth = request.headers.get("authorization")
-        sonolus_id = None
+        sonolus_id = session.sonolus_id
 
+        use_owned_by = False
         if status != "PUBLIC":
-            return  # XXX: implement
-
-        if auth:
-            session_data = app.decode_key(auth)
-            sonolus_id = session_data.user_id
+            if status == None:
+                if sonolus_id:
+                    use_owned_by = True
+                else:
+                    raise HTTPException(
+                        status_code=fstatus.HTTP_400_BAD_REQUEST,
+                        detail="Not logged in, cannot fetch no status (private level list)",
+                    )
+            elif status in ["UNLISTED", "PRIVATE"]:
+                if sonolus_id:
+                    use_owned_by = True
+                else:
+                    raise HTTPException(
+                        status_code=fstatus.HTTP_400_BAD_REQUEST,
+                        detail="Not logged in, cannot fetch personal UNLISTED/PRIVATE",
+                    )
         item_page_count = 10
         if type == "random":
+            if use_owned_by:
+                raise HTTPException(
+                    status_code=fstatus.HTTP_400_BAD_REQUEST,
+                    detail="Can't use random for non-public charts.",
+                )
             query, args = charts.generate_get_random_charts_query(
                 item_page_count // 2, sonolus_id=sonolus_id
             )
@@ -75,6 +93,7 @@ def setup():
                 sort_order=sort_order,
                 meta_includes=meta_includes,
                 sonolus_id=sonolus_id,
+                owned_by=sonolus_id if use_owned_by else None,
             )
         async with app.db.acquire() as conn:
             rows = await conn.fetch(query, *args)

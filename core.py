@@ -9,6 +9,8 @@ from typing import Union
 import aioboto3
 import asyncpg
 
+from authlib.integrations.starlette_client import OAuth
+
 
 class ChartFastAPI(FastAPI):
     def __init__(self, config: ConfigType, *args, **kwargs):
@@ -25,6 +27,8 @@ class ChartFastAPI(FastAPI):
         self.auth_header: str | None = None
         self.token_secret_key: str | None = None
         self.db: asyncpg.Pool | None = None
+
+        self.oauth: OAuth | None = None
 
         self.exception_handlers.setdefault(HTTPException, self.http_exception_handler)
 

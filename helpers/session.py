@@ -32,7 +32,7 @@ class Session:
                         detail="Not logged in.",
                     )
 
-                self._user = result
+                self._user = dict(result)
                 self._user_fetched = True
 
         return self._user
@@ -46,18 +46,18 @@ class Session:
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in."
             )
 
-        self.session_data = self.app.decode_key(authorization)
-        self.sonolus_id = self.session_data.user_id
+        if authorization:
+            self.session_data = self.app.decode_key(authorization)
+            self.sonolus_id = self.session_data.user_id
 
-        if self.enforce_type and self.session_data.type != self.enforce_type:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token type."
-            )
-
-        if not self.allow_banned_users:
-            if (await self.user())["banned"]:
+            if self.enforce_type and self.session_data.type != self.enforce_type:
                 raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN, detail="User banned."
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token type."
                 )
 
+            if not self.allow_banned_users:
+                if (await self.user())["banned"]:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN, detail="User banned."
+                    )
         return self

@@ -1,6 +1,9 @@
-import uuid, io, asyncio
+import uuid, io, asyncio, json, time
+
+import aiohttp
 
 from fastapi import APIRouter, Request, HTTPException, status, UploadFile, Form
+from fastapi.responses import JSONResponse
 
 from database import charts, accounts
 
@@ -8,6 +11,7 @@ from helpers.models import ChartUploadData
 from helpers.hashing import calculate_sha1
 from helpers.file_checks import get_and_check_file
 from helpers.backgrounds import generate_backgrounds
+from helpers.session import Session
 
 import sonolus_converters
 
@@ -30,42 +34,55 @@ def setup():
         data: str = Form(...),
         preview_file: Optional[UploadFile] = None,
         background_image: Optional[UploadFile] = None,
+        session=Session(
+            enforce_auth=True, enforce_type="external", allow_banned_users=False
+        ),
     ):
         app: ChartFastAPI = request.app
         try:
             data: ChartUploadData = ChartUploadData.model_validate_json(data)
         except ValidationError as e:
             raise HTTPException(status_code=422, detail=e.errors())
-        auth = request.headers.get("authorization")
-        # this is a PUBLIC route, don't check for private auth, only user auth
-        if not auth:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in."
-            )
-        session_data = app.decode_key(auth)
-        if session_data.type != "external":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token type."
-            )
-        query, args = accounts.generate_get_account_from_session_query(
-            session_data.user_id, auth, "external"
-        )
-        async with app.db.acquire() as conn:
-            result = await conn.fetchrow(query, *args)
-            if not result:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in."
+
+        user = await session.user()
+        oauth = json.loads(user["oauth_details"])
+        discord_oauth = oauth.get("discord")
+
+        if not discord_oauth:
+            return JSONResponse(content={}, status_code=403)
+
+        if False:  # XXX: check and confirm
+            now = int(time.time())
+            if now >= discord_oauth.get("expires_at", 0):
+                return JSONResponse(content={}, status_code=403)
+
+            user_resp = await app.oauth.discord.get("users/@me", token=discord_oauth)
+            if user_resp.status_code != 200:
+                # delete oauth if invalid
+                query, args = accounts.generate_delete_oauth_query(
+                    session.sonolus_id, "discord"
                 )
-            if result["banned"]:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN, detail="User banned."
-                )
-            cooldown = result["chart_upload_cooldown"]
-            if cooldown and (True):  # XXX: insert cooldown, compared cooldown
-                raise HTTPException(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail=f"On cooldown. TIME REMAINING",
-                )  # XXX todo
+                async with app.db.acquire() as conn:
+                    await conn.execute(query, *args)
+                return JSONResponse(content={}, status_code=403)
+
+            guilds_resp = await app.oauth.discord.get(
+                "users/@me/guilds", token=discord_oauth
+            )
+            if guilds_resp.status_code != 200:
+                return JSONResponse(content={}, status_code=403)
+            guilds_data = await guilds_resp.json()
+            required_guild = app.config["oauth"]["required-discord-server"]
+            in_guild = any(guild["id"] == required_guild for guild in guilds_data)
+            if not in_guild:
+                return JSONResponse(content={}, status_code=403)
+
+        cooldown = user["chart_upload_cooldown"]
+        if cooldown and (True):  # XXX: insert cooldown, compared cooldown
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"On cooldown. TIME REMAINING",
+            )  # XXX todo
 
         MAX_FILE_SIZES = {
             "jacket": 5 * 1024 * 1024,  # 5 MB
@@ -103,7 +120,7 @@ def setup():
         jacket_hash = calculate_sha1(jacket_bytes)
         s3_uploads.append(
             {
-                "path": f"{session_data.user_id}/{chart_id}/{jacket_hash}",
+                "path": f"{session.sonolus_id}/{chart_id}/{jacket_hash}",
                 "hash": jacket_hash,
                 "bytes": jacket_bytes,
                 "content-type": "image/png",
@@ -143,7 +160,7 @@ def setup():
         chart_hash = calculate_sha1(chart_bytes)
         s3_uploads.append(
             {
-                "path": f"{session_data.user_id}/{chart_id}/{chart_hash}",
+                "path": f"{session.sonolus_id}/{chart_id}/{chart_hash}",
                 "hash": chart_hash,
                 "bytes": chart_bytes,
                 "content-type": "application/gzip",
@@ -154,7 +171,7 @@ def setup():
         audio_hash = calculate_sha1(audio_bytes)
         s3_uploads.append(
             {
-                "path": f"{session_data.user_id}/{chart_id}/{audio_hash}",
+                "path": f"{session.sonolus_id}/{chart_id}/{audio_hash}",
                 "hash": audio_hash,
                 "bytes": audio_bytes,
                 "content-type": "audio/mpeg",
@@ -166,7 +183,7 @@ def setup():
             preview_hash = calculate_sha1(preview_bytes)
             s3_uploads.append(
                 {
-                    "path": f"{session_data.user_id}/{chart_id}/{preview_hash}",
+                    "path": f"{session.sonolus_id}/{chart_id}/{preview_hash}",
                     "hash": preview_hash,
                     "bytes": preview_bytes,
                     "content-type": "audio/mpeg",
@@ -178,7 +195,7 @@ def setup():
             background_hash = calculate_sha1(background_bytes)
             s3_uploads.append(
                 {
-                    "path": f"{session_data.user_id}/{chart_id}/{background_hash}",
+                    "path": f"{session.sonolus_id}/{chart_id}/{background_hash}",
                     "hash": background_hash,
                     "bytes": background_bytes,
                     "content-type": "image/png",
@@ -188,7 +205,7 @@ def setup():
         v1_hash = calculate_sha1(v1)
         s3_uploads.append(
             {
-                "path": f"{session_data.user_id}/{chart_id}/{v1_hash}",
+                "path": f"{session.sonolus_id}/{chart_id}/{v1_hash}",
                 "hash": v1_hash,
                 "bytes": v1,
                 "content-type": "image/png",
@@ -197,7 +214,7 @@ def setup():
         v3_hash = calculate_sha1(v3)
         s3_uploads.append(
             {
-                "path": f"{session_data.user_id}/{chart_id}/{v3_hash}",
+                "path": f"{session.sonolus_id}/{chart_id}/{v3_hash}",
                 "hash": v3_hash,
                 "bytes": v3,
                 "content-type": "image/png",
@@ -223,7 +240,7 @@ def setup():
             await asyncio.gather(*tasks)
         query, args = charts.generate_create_chart_query(
             chart_id=chart_id,
-            author=session_data.user_id,
+            author=session.sonolus_id,
             rating=data.rating,
             description=data.description,
             chart_author=data.author,

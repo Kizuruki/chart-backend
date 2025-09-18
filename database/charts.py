@@ -52,7 +52,7 @@ def generate_get_chart_list_query(
     items_per_page: int,
     min_rating: Optional[int] = None,
     max_rating: Optional[int] = None,
-    status: str = "PUBLIC",
+    status: Optional[str] = "PUBLIC",
     tags: Optional[List[str]] = None,
     min_likes: Optional[int] = None,
     max_likes: Optional[int] = None,
@@ -66,6 +66,7 @@ def generate_get_chart_list_query(
     sort_order: Literal["desc", "asc"] = "desc",
     sonolus_id: Optional[str] = None,
     meta_includes: Optional[str] = None,
+    owned_by: Optional[str] = None,
 ) -> Tuple[str, Tuple]:
     base_query = """
         SELECT 
@@ -107,10 +108,8 @@ def generate_get_chart_list_query(
 
     if sonolus_id:
         params.append(sonolus_id)
-        # now len(params) is the correct $N placeholder
         base_query += f" LEFT JOIN chart_likes cl ON c.id = cl.chart_id AND cl.sonolus_id = ${len(params)}"
 
-    # Status
     if status:
         params.append(status)
         conditions.append(f"c.status = ${len(params)}::chart_status")
@@ -140,6 +139,9 @@ def generate_get_chart_list_query(
     if liked_by:
         params.append(liked_by)
         conditions.append(f"clb.sonolus_id = ${len(params)}")
+    if owned_by:
+        params.append(owned_by)
+        conditions.append(f"c.author = ${len(params)}")
 
     # Text filters
     if title_includes:

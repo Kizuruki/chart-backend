@@ -24,3 +24,7 @@ psql:
   password: "..."
   pool-min-size: 10
   pool-max-size: 20
+oauth:
+  discord-client-id: ""
+  discord-client-secret: ""
+  required-discord-server: 1234567890

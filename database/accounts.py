@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Literal
 
 """
 sonolus_sessions JSONB
@@ -16,6 +16,70 @@ sonolus_sessions JSONB
     }
 }
 """
+
+"""
+oauth_details JSONB
+
+{
+    "service_name": {
+        "access_token": "",
+        "refresh_token": "",
+        "expires_at": 0
+    }
+}
+"""
+
+
+def generate_add_oauth_query(
+    sonolus_id: str,
+    access_token: str,
+    refresh_token: str,
+    expires_at: int,
+    service: Literal["discord"],
+) -> Tuple[str, Tuple]:
+    assert service in ["discord"]
+    return f"""
+        UPDATE accounts
+        SET oauth_details = jsonb_set(
+            COALESCE(oauth_details, '{{}}'::jsonb),
+            '{{{service}}}',
+            to_jsonb($2::jsonb)
+        )
+        WHERE sonolus_id = $1;
+    """, (
+        sonolus_id,
+        {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "expires_at": expires_at,
+        },
+    )
+
+
+def generate_delete_oauth_query(
+    sonolus_id: str, service: Literal["discord"]
+) -> Tuple[str, Tuple]:
+    assert service in ["discord"]
+    return f"""
+        UPDATE accounts
+        SET oauth_details = oauth_details - '{service}'
+        WHERE sonolus_id = $1;
+    """, (
+        sonolus_id,
+    )
+
+
+def generate_get_oauth_query(
+    sonolus_id: str, service: Literal["discord"]
+) -> Tuple[str, Tuple]:
+    assert service in ["discord"]
+    return f"""
+        SELECT oauth_details->'{service}'
+        FROM accounts
+        WHERE sonolus_id = $1;
+    """, (
+        sonolus_id,
+    )
 
 
 def generate_create_account_query(

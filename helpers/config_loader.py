@@ -1,6 +1,15 @@
 from typing import TypedDict
 import yaml
 
+ConfigTypeOAuth = TypedDict(
+    "ConfigTypeOAuth",
+    {
+        "discord-client-id": str,
+        "discord-client-secret": str,
+        "required-discord-server": int,
+    },
+)
+
 ConfigTypeServer = TypedDict(
     "ConfigTypeServer",
     {
@@ -46,6 +55,7 @@ ConfigType = TypedDict(
         "server": ConfigTypeServer,
         "s3": ConfigTypeS3,
         "psql": ConfigTypePsql,
+        "oauth": ConfigTypeOAuth,
     },
 )
 

@@ -8,13 +8,23 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 import uvicorn
 
+from authlib.integrations.starlette_client import OAuth
+
 from helpers.config_loader import get_config
 from core import ChartFastAPI
 
 config = get_config()
 debug = config.get("server", {}).get("debug")
 
-app = ChartFastAPI(config=config)
+if debug:
+    app = ChartFastAPI(config=config)
+else:
+    app = ChartFastAPI(
+        config=config,
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+    )
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,7 +35,7 @@ app.add_middleware(
 app.add_middleware(SessionMiddleware, secret_key=config["server"]["secret-key"])
 if not debug:
     domain = urlparse(config["server"]["base-url"]).netloc
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=[domain])
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=[domain, "127.0.0.1"])
 
 
 @app.middleware("http")
@@ -116,6 +126,19 @@ def load_routes(folder, cleanup: bool = True):
 
 
 async def startup_event():
+    oauth = OAuth()
+    oauth.register(
+        name="discord",
+        client_id=config["oauth"]["discord-client-id"],
+        client_secret=config["oauth"]["discord-client-secret"],
+        access_token_url="https://discord.com/api/oauth2/token",
+        access_token_params=None,
+        authorize_url="https://discord.com/api/oauth2/authorize",
+        authorize_params=None,
+        api_base_url="https://discord.com/api/v10/",
+        client_kwargs={"scope": "identify guilds"},
+    )
+    app.oauth = oauth
     await app.init()
     folder = "api"
     if len(os.listdir(folder)) == 0:
