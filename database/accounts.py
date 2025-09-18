@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from typing import Tuple, Optional, Literal
 
@@ -188,6 +188,17 @@ def generate_get_account_from_session_query(
         sonolus_id,
         session_key,
     )
+
+
+def generate_update_cooldown_query(sonolus_id: str, time_to_add: timedelta):
+    cooldown_until = datetime.now(timezone.utc) + time_to_add
+    query = """
+        UPDATE accounts
+        SET chart_upload_cooldown = $1
+        WHERE sonolus_id = $2
+    """
+    args = (cooldown_until, sonolus_id)
+    return query, args
 
 
 def generate_delete_account_query(

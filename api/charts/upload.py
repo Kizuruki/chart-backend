@@ -1,6 +1,6 @@
 import uuid, io, asyncio, json, time
 
-import aiohttp
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Request, HTTPException, status, UploadFile, Form
 from fastapi.responses import JSONResponse
@@ -78,11 +78,15 @@ def setup():
                 return JSONResponse(content={}, status_code=403)
 
         cooldown = user["chart_upload_cooldown"]
-        if cooldown and (True):  # XXX: insert cooldown, compared cooldown
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"On cooldown. TIME REMAINING",
-            )  # XXX todo
+        if cooldown:
+            now = datetime.now(timezone.utc)
+            if now < cooldown:
+                remaining = cooldown - now
+                minutes, seconds = divmod(int(remaining.total_seconds()), 60)
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=f"On cooldown. Time remaining: {minutes}m {seconds}s",
+                )
 
         MAX_FILE_SIZES = {
             "jacket": 5 * 1024 * 1024,  # 5 MB
@@ -255,10 +259,15 @@ def setup():
             v1_hash=v1_hash,
             v3_hash=v3_hash,
         )
+        query2, args2 = accounts.generate_update_cooldown_query(
+            sonolus_id=session.sonolus_id,
+            time_to_add=timedelta(minutes=1),  # XXX: 1 minute for now
+        )
 
         async with app.db.acquire() as conn:
             result = await conn.fetchrow(query, *args)
             if result:
+                await conn.execute(query2, *args2)
                 return {"id": result["id"]}
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

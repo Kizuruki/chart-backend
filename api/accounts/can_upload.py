@@ -10,6 +10,8 @@ from helpers.session import Session
 
 router = APIRouter()
 
+raise NotImplementedError()
+
 
 def setup():
     @router.get("/")

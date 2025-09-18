@@ -12,6 +12,8 @@ from database import accounts
 
 router = APIRouter()
 
+raise NotImplementedError()
+
 
 def setup():
     @router.get("/login")
