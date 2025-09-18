@@ -5,7 +5,7 @@ from core import ChartFastAPI
 
 from database import charts
 
-from helpers.session import Session
+from helpers.session import get_session, Session
 
 router = APIRouter()
 
@@ -31,7 +31,7 @@ def setup():
         sort_order: Literal["desc", "asc"] = Query("desc"),
         status: Literal["PUBLIC", "UNLISTED", "PRIVATE", "ALL"] = Query("PUBLIC"),
         meta_includes: Optional[str] = Query(None),
-        session=Session(enforce_auth=False, allow_banned_users=False),
+        session: Session = get_session(enforce_auth=False, allow_banned_users=False),
     ):
         app: ChartFastAPI = request.app
 

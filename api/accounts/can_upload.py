@@ -6,7 +6,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from database import accounts
-from helpers.session import Session
+from helpers.session import get_session, Session
 
 router = APIRouter()
 
@@ -17,7 +17,7 @@ def setup():
     @router.get("/")
     async def main(
         request: Request,
-        session=Session(
+        session: Session = get_session(
             enforce_auth=True,
             enforce_type="external",
             allow_banned_users=False,

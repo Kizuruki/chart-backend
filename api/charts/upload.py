@@ -11,7 +11,7 @@ from helpers.models import ChartUploadData
 from helpers.hashing import calculate_sha1
 from helpers.file_checks import get_and_check_file
 from helpers.backgrounds import generate_backgrounds
-from helpers.session import Session
+from helpers.session import get_session, Session
 
 import sonolus_converters
 
@@ -34,7 +34,7 @@ def setup():
         data: str = Form(...),
         preview_file: Optional[UploadFile] = None,
         background_image: Optional[UploadFile] = None,
-        session=Session(
+        session: Session = get_session(
             enforce_auth=True, enforce_type="external", allow_banned_users=False
         ),
     ):

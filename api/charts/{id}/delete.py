@@ -2,7 +2,7 @@ import asyncio
 from fastapi import APIRouter, Request, HTTPException, status
 
 from database import charts
-from helpers.session import Session
+from helpers.session import get_session, Session
 
 from core import ChartFastAPI
 
@@ -14,7 +14,7 @@ def setup():
     async def main(
         request: Request,
         id: str,
-        session=Session(
+        session: Session = get_session(
             enforce_auth=True, enforce_type="external", allow_banned_users=False
         ),
     ):

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Request, status, HTTPException
 from fastapi.responses import JSONResponse
 from authlib.integrations.starlette_client import OAuth
 
-from helpers.session import Session
+from helpers.session import get_session, Session
 
 from database import accounts
 
@@ -20,7 +20,7 @@ def setup():
     # XXX: oauth LOGIN as well, not just linking
     async def login_discord(
         request: Request,
-        session=Session(
+        session: Session = get_session(
             enforce_auth=True, enforce_type="external", allow_banned_users=False
         ),
     ):
@@ -32,7 +32,7 @@ def setup():
     @router.get("/link")
     async def auth_discord(
         request: Request,
-        session=Session(
+        session: Session = get_session(
             enforce_auth=True, enforce_type="external", allow_banned_users=False
         ),
     ):

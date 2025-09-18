@@ -1,7 +1,25 @@
 from fastapi import Header, HTTPException, status, Request
 from core import ChartFastAPI
-from typing import Literal
+from typing import Literal, Optional
 from database import accounts
+from fastapi import Depends
+
+
+def get_session(
+    enforce_auth: bool = False,
+    enforce_type: Literal["game", "external", False] = False,
+    allow_banned_users: bool = True,
+):
+    async def dependency(request: Request, authorization: str = Header(None)):
+        session = Session(
+            enforce_auth=enforce_auth,
+            enforce_type=enforce_type,
+            allow_banned_users=allow_banned_users,
+        )
+        await session(request, authorization)
+        return session
+
+    return Depends(dependency)
 
 
 class Session:
@@ -37,7 +55,9 @@ class Session:
 
         return self._user
 
-    async def __call__(self, request: Request, authorization: str = Header(...)):
+    async def __call__(
+        self, request: Request, authorization: Optional[str] = Header(None)
+    ):
         self.app: ChartFastAPI = request.app
         self.auth = authorization
 
