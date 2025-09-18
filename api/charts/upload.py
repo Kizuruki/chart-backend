@@ -45,13 +45,16 @@ def setup():
             raise HTTPException(status_code=422, detail=e.errors())
 
         user = await session.user()
-        oauth = json.loads(user["oauth_details"])
-        discord_oauth = oauth.get("discord")
-
-        if not discord_oauth:
-            return JSONResponse(content={}, status_code=403)
 
         if False:  # XXX: check and confirm
+            if user["oauth_details"]:
+                oauth = json.loads(user["oauth_details"])
+            else:
+                oauth = {}
+            discord_oauth = oauth.get("discord")
+
+            if not discord_oauth:
+                return JSONResponse(content={}, status_code=403)
             now = int(time.time())
             if now >= discord_oauth.get("expires_at", 0):
                 return JSONResponse(content={}, status_code=403)

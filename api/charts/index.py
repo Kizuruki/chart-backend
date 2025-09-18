@@ -29,7 +29,9 @@ def setup():
             "created_at", "rating", "likes", "decaying_likes", "abc"
         ] = Query("created_at"),
         sort_order: Literal["desc", "asc"] = Query("desc"),
-        status: Literal["PUBLIC", "UNLISTED", "PRIVATE", "ALL"] = Query("PUBLIC"),
+        status: Literal["PUBLIC", "PUBLIC_MINE", "UNLISTED", "PRIVATE", "ALL"] = Query(
+            "PUBLIC"
+        ),
         meta_includes: Optional[str] = Query(None),
         session: Session = get_session(enforce_auth=False, allow_banned_users=False),
     ):
@@ -49,14 +51,17 @@ def setup():
                         status_code=fstatus.HTTP_400_BAD_REQUEST,
                         detail="Not logged in, cannot fetch no status (private level list)",
                     )
-            elif status in ["UNLISTED", "PRIVATE"]:
+            elif status in ["UNLISTED", "PRIVATE", "PUBLIC_MINE"]:
                 if sonolus_id:
                     use_owned_by = True
                 else:
                     raise HTTPException(
                         status_code=fstatus.HTTP_400_BAD_REQUEST,
-                        detail="Not logged in, cannot fetch personal UNLISTED/PRIVATE",
+                        detail="Not logged in, cannot fetch personal UNLISTED/PRIVATE/PUBLIC_MINE",
                     )
+        if status == "PUBLIC_MINE":
+            status = "PUBLIC"
+            use_owned_by = True
         item_page_count = 10
         if type == "random":
             if use_owned_by:

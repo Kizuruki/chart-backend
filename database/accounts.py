@@ -191,7 +191,7 @@ def generate_get_account_from_session_query(
 
 
 def generate_update_cooldown_query(sonolus_id: str, time_to_add: timedelta):
-    cooldown_until = datetime.now(timezone.utc) + time_to_add
+    cooldown_until = (datetime.now(timezone.utc) + time_to_add).replace(tzinfo=None)
     query = """
         UPDATE accounts
         SET chart_upload_cooldown = $1
