@@ -68,7 +68,7 @@ async def main(
         user_resp = await app.oauth.discord.get("users/@me", token=discord_oauth)
         if user_resp.status_code != 200:
             # delete oauth if invalid
-            query, args = accounts.delete_oauth(
+            query = accounts.delete_oauth(
                 session.sonolus_id, "discord"
             )
             async with app.db_acquire() as conn:
@@ -268,10 +268,10 @@ async def main(
     )
 
     async with app.db_acquire() as conn:
-        result = await conn.conn.fetchrow(query.sql, *query.args)
+        result = await conn.fetchrow(query)
         if result:
             await conn.execute(query2)
-            return {"id": result["id"]}
+            return {"id": result.id}
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error while processing upload result.",

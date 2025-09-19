@@ -30,7 +30,7 @@ async def main(
         chart_id, session.sonolus_id, confirm_change=True
     )
     async with app.db_acquire() as conn:
-        exists = await conn.conn.fetchrow(query.sql, *query.args)
+        exists = await conn.fetchrow(query)
     if exists:
         async with app.s3_session_getter() as s3:
             bucket = await s3.Bucket(app.s3_bucket)

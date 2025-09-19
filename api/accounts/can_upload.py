@@ -93,7 +93,7 @@ async def refresh_discord_token(sonolus_id: str, oauth: dict, app: ChartFastAPI)
         "expires_at": now + token.get("expires_in", 3600),
     }
 
-    query, args = accounts.add_oauth(
+    query = accounts.add_oauth(
         sonolus_id, # TODO: convert these to OAuth()
         refreshed["access_token"],
         refreshed["refresh_token"],

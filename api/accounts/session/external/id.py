@@ -21,9 +21,9 @@ async def main(request: Request):
     query = external.create_external_login(id_key)
 
     async with app.db_acquire() as conn:
-        result = await conn.conn.fetchrow(query.sql, *query.args) # possibly TODO?
+        result = await conn.fetchrow(query)
         if result:
-            id_key = result["id_key"]
+            id_key = result.id_key
             return {"id": id_key}
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
