@@ -110,15 +110,9 @@ def setup():
             )
         async with app.db.acquire() as conn:
             rows = await conn.fetch(query, *args)
-            if rows:
-                total = rows[0]["total_count"]
-                page_count = (total + item_page_count - 1) // item_page_count
-                data = [dict(row) for row in rows]
-            else:
-                # XXX: todo: past max pages error
-                total = 0
-                page_count = 0
-                data = []
+            total = rows[0]["total_count"] if rows else 0
+            page_count = (total + item_page_count - 1) // item_page_count
+            data = [dict(row) for row in rows] if rows else []
 
         return {
             "pageCount": page_count,

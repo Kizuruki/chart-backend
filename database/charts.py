@@ -52,7 +52,7 @@ def generate_get_chart_list_query(
     items_per_page: int,
     min_rating: Optional[int] = None,
     max_rating: Optional[int] = None,
-    status: Optional[str] = "PUBLIC",
+    status: Optional[Literal["PUBLIC", "PRIVATE", "UNLISTED"]] = "PUBLIC",
     tags: Optional[List[str]] = None,
     min_likes: Optional[int] = None,
     max_likes: Optional[int] = None,
@@ -68,7 +68,8 @@ def generate_get_chart_list_query(
     meta_includes: Optional[str] = None,
     owned_by: Optional[str] = None,
 ) -> Tuple[str, Tuple]:
-    base_query = """
+    # Inner SELECT (without pagination)
+    inner_select = """
         SELECT 
             c.id, 
             c.title, 
@@ -80,41 +81,41 @@ def generate_get_chart_list_query(
             c.music_file_hash, 
             c.chart_file_hash,
             c.preview_file_hash, 
-            c.background_file_hash, 
+            c.background_file_hash,
+            c.background_v3_file_hash,
+            c.background_v1_file_hash,
             c.status,
             c.rating, 
             c.like_count,
             c.created_at, 
             c.updated_at,
-            c.chart_author || '#' || a.sonolus_handle AS author_full,
-            COUNT(*) OVER() AS total_count
+            c.chart_author || '#' || a.sonolus_handle AS author_full
     """
 
     if sonolus_id:
-        base_query += """,
+        inner_select += """,
             CASE WHEN cl.sonolus_id IS NULL THEN FALSE ELSE TRUE END AS liked
         """
 
-    base_query += """
+    inner_select += """
         FROM charts c
         JOIN accounts a ON c.author = a.sonolus_id
     """
 
     if liked_by:
-        base_query += " JOIN chart_likes clb ON c.id = clb.chart_id"
+        inner_select += " JOIN chart_likes clb ON c.id = clb.chart_id"
 
     conditions = []
     params: List = []
 
     if sonolus_id:
         params.append(sonolus_id)
-        base_query += f" LEFT JOIN chart_likes cl ON c.id = cl.chart_id AND cl.sonolus_id = ${len(params)}"
+        inner_select += f" LEFT JOIN chart_likes cl ON c.id = cl.chart_id AND cl.sonolus_id = ${len(params)}"
 
     if status:
         params.append(status)
         conditions.append(f"c.status = ${len(params)}::chart_status")
 
-    # Ratings
     if min_rating is not None:
         params.append(min_rating)
         conditions.append(f"c.rating >= ${len(params)}")
@@ -122,12 +123,10 @@ def generate_get_chart_list_query(
         params.append(max_rating)
         conditions.append(f"c.rating <= ${len(params)}")
 
-    # Tags as Postgres array
     if tags:
         params.append(tags)
         conditions.append(f"c.tags @> ${len(params)}::text[]")
 
-    # Likes
     if min_likes is not None:
         params.append(min_likes)
         conditions.append(f"c.like_count >= ${len(params)}")
@@ -135,7 +134,6 @@ def generate_get_chart_list_query(
         params.append(max_likes)
         conditions.append(f"c.like_count <= ${len(params)}")
 
-    # liked_by filter
     if liked_by:
         params.append(liked_by)
         conditions.append(f"clb.sonolus_id = ${len(params)}")
@@ -143,7 +141,6 @@ def generate_get_chart_list_query(
         params.append(owned_by)
         conditions.append(f"c.author = ${len(params)}")
 
-    # Text filters
     if title_includes:
         params.append(f"%{title_includes.lower()}%")
         conditions.append(f"LOWER(c.title) LIKE ${len(params)}")
@@ -163,25 +160,33 @@ def generate_get_chart_list_query(
         )
 
     if conditions:
-        base_query += " WHERE " + " AND ".join(conditions)
+        inner_select += " WHERE " + " AND ".join(conditions)
 
     sort_column = {
-        "created_at": "c.created_at",
-        "rating": "c.rating",
-        "likes": "c.like_count",
-        "decaying_likes": "c.log_like_score",
-        "abc": "c.title",
-    }.get(sort_by, "c.created_at")
+        "created_at": "created_at",
+        "rating": "rating",
+        "likes": "like_count",
+        "decaying_likes": "log_like_score",
+        "abc": "title",
+    }.get(sort_by, "created_at")
 
     sort_order_sql = "DESC" if sort_order.lower() == "desc" else "ASC"
-    base_query += f" ORDER BY {sort_column} {sort_order_sql}"
 
-    # Pagination (always int)
+    query = f"""
+        WITH chart_data AS (
+            {inner_select}
+        )
+        SELECT *,
+               (SELECT COUNT(*) FROM chart_data) AS total_count
+        FROM chart_data
+        ORDER BY {sort_column} {sort_order_sql}
+        LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}
+    """
+
     params.append(items_per_page)
     params.append(page * items_per_page)
-    base_query += f" LIMIT ${len(params)-1} OFFSET ${len(params)}"
 
-    return base_query, tuple(params)
+    return query, tuple(params)
 
 
 def generate_get_random_charts_query(
@@ -205,6 +210,8 @@ def generate_get_random_charts_query(
                 c.chart_file_hash,
                 c.preview_file_hash,
                 c.background_file_hash,
+                c.background_v3_file_hash,
+                c.background_v1_file_hash,
                 c.status,
                 c.rating,
                 c.like_count,
