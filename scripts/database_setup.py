@@ -116,12 +116,19 @@ BEGIN
         SET like_count = like_count + 1
         WHERE id = NEW.chart_id;
 
-        SELECT COALESCE(LOG1P(EXP(a * EXTRACT(EPOCH FROM NEW.created_at)) / 
-                   EXP(COALESCE(log_like_score,0))), LOG(EXP(a * EXTRACT(EPOCH FROM NEW.created_at)))) 
-        INTO s;
+        SELECT COALESCE(
+            LN(
+                1 + EXP(a * (EXTRACT(EPOCH FROM NEW.created_at) - tnow)) /
+                    EXP(COALESCE(c.log_like_score, 0))
+            ),
+            a * (EXTRACT(EPOCH FROM NEW.created_at) - tnow)
+        )
+        INTO s
+        FROM charts c
+        WHERE c.id = NEW.chart_id;
 
         UPDATE charts
-        SET log_like_score = COALESCE(log_like_score,0) + LOG1P(EXP(a * EXTRACT(EPOCH FROM NEW.created_at) - COALESCE(log_like_score,0)))
+        SET log_like_score = COALESCE(log_like_score, 0) + s
         WHERE id = NEW.chart_id;
 
     ELSIF TG_OP = 'DELETE' THEN
@@ -131,7 +138,7 @@ BEGIN
 
         UPDATE charts c
         SET log_like_score = COALESCE((
-            SELECT LOG(SUM(EXP(a * EXTRACT(EPOCH FROM cl.created_at))))
+            SELECT LN(SUM(EXP(a * (EXTRACT(EPOCH FROM cl.created_at) - tnow))))
             FROM chart_likes cl
             WHERE cl.chart_id = OLD.chart_id
         ), 0)
@@ -142,7 +149,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE TRIGGER trg_update_like_count
+DROP TRIGGER IF EXISTS trg_update_like_count ON chart_likes;
+
+CREATE TRIGGER trg_update_like_count
 AFTER INSERT OR DELETE ON chart_likes
 FOR EACH ROW
 EXECUTE FUNCTION update_like_count();""",
