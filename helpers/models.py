@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field
+import json
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Literal, Optional
 from datetime import datetime
-from typing import Any, Union
+from typing import Any
 
 
 class ServiceUserProfile(BaseModel):
@@ -78,14 +79,17 @@ class SessionKeyData(BaseModel):
     user_id: str
     type: Literal["game", "external"]
 
+
 class OAuth(BaseModel):
     access_token: str
     refresh_token: str
     expires_at: int
 
+
 class SessionData(BaseModel):
     session_key: str
     expires: int
+
 
 class Account(BaseModel):
     sonolus_id: str
@@ -93,7 +97,9 @@ class Account(BaseModel):
     discord_id: Optional[int] = None
     patreon_id: Optional[str] = None
     chart_upload_cooldown: Optional[datetime] = None
-    sonolus_sessions: Optional[dict[Literal["game", "external"], dict[int, SessionData]]] = None
+    sonolus_sessions: Optional[
+        dict[Literal["game", "external"], dict[int, SessionData]]
+    ] = None
     oauth_details: Optional[dict[str, OAuth]] = None
     subscription_details: Optional[Any] = None
     created_at: datetime
@@ -101,10 +107,21 @@ class Account(BaseModel):
     mod: bool = False
     banned: bool = False
 
+    @field_validator("sonolus_sessions", "oauth_details", mode="before")
+    @classmethod
+    def parse_json(cls, v):
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except Exception:
+                raise ValueError("Invalid JSON string for dict field")
+        return v
+
+
 class Chart(BaseModel):
     id: str
     author: str
-    rating: int = 1
+    rating: int
     chart_author: str
     title: str
     artists: Optional[str] = None
@@ -118,18 +135,46 @@ class Chart(BaseModel):
     preview_file_hash: Optional[str] = None
     background_file_hash: Optional[str] = None
 
-class ChartDBResponse(Chart):
-    status: Literal['UNLISTED', 'PRIVATE', 'PUBLIC']
+
+class Count(BaseModel):
+    total_count: int
+
+
+class ChartDBResponse(BaseModel):
+    # DO NOT INHERIT FROM CHART API BASEMODEL
+    # THE DB RESPONSE IS DIFFERENT!
+    id: str
+    rating: int
+    author: str  # author sonolus id
+    title: str
+    artists: Optional[str] = None
+    jacket_file_hash: str
+    music_file_hash: str
+    chart_file_hash: str
+    background_v1_file_hash: str
+    background_v3_file_hash: str
+    tags: Optional[List[str]] = Field(default_factory=list)
+    description: Optional[str] = None
+    preview_file_hash: Optional[str] = None
+    background_file_hash: Optional[str] = None
+    status: Literal["UNLISTED", "PRIVATE", "PUBLIC"]
     like_count: int
     created_at: datetime
     updated_at: datetime
     author_full: str
 
-class ChartList(ChartDBResponse):
-    total_count: int
+
+class ChartDBResponseLiked(ChartDBResponse):
+    liked: bool
+
 
 class ChartByID(ChartDBResponse):
     log_like_score: float
+
+
+class ChartByIDLiked(ChartByID):
+    liked: bool
+
 
 class Comment(BaseModel):
     id: str
@@ -139,10 +184,12 @@ class Comment(BaseModel):
     deleted_at: Optional[datetime] = None
     chart_id: str
 
+
 class ExternalLogin(SessionData):
     session_key: str
     expires_at: datetime
     id_key: str
+
 
 class DBID(BaseModel):
     id: str

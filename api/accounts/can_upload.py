@@ -35,9 +35,7 @@ async def main(
     now = int(time.time())
 
     if now >= discord_oauth.get("expires_at", 0):
-        refreshed = await refresh_discord_token(
-            session.sonolus_id, discord_oauth, app
-        )
+        refreshed = await refresh_discord_token(session.sonolus_id, discord_oauth, app)
         if not refreshed:
             query = accounts.delete_oauth(session.sonolus_id, "discord")
             async with app.db_acquire() as conn:
@@ -94,7 +92,7 @@ async def refresh_discord_token(sonolus_id: str, oauth: dict, app: ChartFastAPI)
     }
 
     query = accounts.add_oauth(
-        sonolus_id, # TODO: convert these to OAuth()
+        sonolus_id,  # TODO: convert these to OAuth()
         refreshed["access_token"],
         refreshed["refresh_token"],
         refreshed["expires_at"],

@@ -10,6 +10,8 @@ from asyncpg import Connection
 from typing import TypeVar, Optional
 
 T = TypeVar("T")
+
+
 class DBConnWrapper:
     def __init__(self, conn: Connection):
         self.conn = conn
@@ -24,10 +26,9 @@ class DBConnWrapper:
             return None
 
         return map(lambda x: query.model.model_validate(dict(x)), fetch_result)
-    
-    async def fetchrow(self, query: SelectQuery[T]) -> Optional[T]:
-        fetch_result = await self.conn.fetch(query.sql, *query.args)
 
+    async def fetchrow(self, query: SelectQuery[T]) -> Optional[T]:
+        fetch_result = await self.conn.fetchrow(query.sql, *query.args)
         if not fetch_result:
             return None
 

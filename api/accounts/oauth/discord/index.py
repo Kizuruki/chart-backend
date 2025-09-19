@@ -28,6 +28,7 @@ async def login_discord(
     redirect_uri = request.url_for("link_discord")
     return await app.oauth.discord.authorize_redirect(request, redirect_uri)
 
+
 @router.get("/link")
 async def auth_discord(
     request: Request,
@@ -65,15 +66,13 @@ async def auth_discord(
     sonolus_id = session.sonolus_id
     expires_at = int(time.time()) + token.get("expires_in", 3600)
     query = accounts.add_oauth(
-        sonolus_id, # TODO: convert these to OAuth
+        sonolus_id,  # TODO: convert these to OAuth
         token["access_token"],
         token["refresh_token"],
         expires_at,
         "discord",
     )
     await app.db.execute(query)
-    query = accounts.link_discord_id(
-        sonolus_id, discord_id=user_data["id"]
-    )
+    query = accounts.link_discord_id(sonolus_id, discord_id=user_data["id"])
 
     return JSONResponse({"user": user_data, "guilds": guilds_data, "token": token})

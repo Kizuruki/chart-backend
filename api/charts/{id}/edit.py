@@ -29,6 +29,7 @@ MAX_FILE_SIZES = {
     "background": 10 * 1024 * 1024,  # 10 MB
 }
 
+
 @router.patch("/")
 async def main(
     request: Request,
@@ -39,13 +40,31 @@ async def main(
     audio_file: Optional[UploadFile] = None,
     preview_file: Optional[UploadFile] = None,
     background_image: Optional[UploadFile] = None,
-    session: Session = get_session(enforce_auth=True, enforce_type="external", allow_banned_users=False)
+    session: Session = get_session(
+        enforce_auth=True, enforce_type="external", allow_banned_users=False
+    ),
 ):
+    if len(id) != 32 or not id.isalnum():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chart ID."
+        )
+
     app: ChartFastAPI = request.app
     try:
         data: ChartEditData = ChartEditData.model_validate_json(data)
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors())
+
+    if (
+        (data.description and len(data.description) > 250)
+        or (data.artists and len(data.artists) > 50)
+        or (data.title and len(data.title) > 50)
+        or (data.author and len(data.author) > 20)
+        or (data.tags and any(len(tag) > 10 for tag in data.tags))
+    ):
+        raise HTTPException(
+            status=status.HTTP_400_BAD_REQUEST, detail="Length limits exceeded"
+        )
 
     query = charts.get_chart_by_id(id)
     async with app.db_acquire() as conn:
@@ -230,9 +249,7 @@ async def main(
                 detail="Uploaded files exceed file size limit.",
             )
         if data.includes_background and not data.delete_background:
-            background_bytes = await get_and_check_file(
-                background_image, "image/png"
-            )
+            background_bytes = await get_and_check_file(background_image, "image/png")
             background_hash = calculate_sha1(background_bytes)
             if not background_hash == old_chart_data.background_file_hash:
                 s3_uploads.append(
@@ -323,13 +340,9 @@ async def main(
         v3_hash=v3_hash if data.includes_jacket and jacket_image else None,
         music_hash=audio_hash if data.includes_audio and audio_file else None,
         chart_hash=chart_hash if data.includes_chart and chart_file else None,
-        preview_hash=(
-            preview_hash if data.includes_preview and preview_file else None
-        ),
+        preview_hash=(preview_hash if data.includes_preview and preview_file else None),
         background_hash=(
-            background_hash
-            if data.includes_background and background_image
-            else None
+            background_hash if data.includes_background and background_image else None
         ),
         confirm_change=True,
         update_none_preview=True if data.delete_preview else False,

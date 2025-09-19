@@ -44,9 +44,7 @@ async def main(request: Request, data: ExternalServiceUserProfileWithType):
     query = accounts.create_account_if_not_exists_and_new_session(
         session_key, data.id, int(data.handle), data.type
     )
-    query2 = external.update_session_key(
-        id_key=data.id_key, session_key=session_key
-    )
+    query2 = external.update_session_key(id_key=data.id_key, session_key=session_key)
 
     async with app.db_acquire() as conn:
         result = await conn.fetchrow(query)

@@ -16,15 +16,12 @@ async def main(request: Request, id: str, session: Session = get_session()):
 
     app: ChartFastAPI = request.app
 
-    if len(id) != 37 or not id.startswith("UnCh-") or not id[5:].isalnum():
+    if len(id) != 32 or not id.isalnum():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chart ID."
         )
 
-    chart_id = id.removeprefix("UnCh-")
-    query = charts.get_chart_by_id(
-        chart_id, sonolus_id=session.sonolus_id
-    )
+    query = charts.get_chart_by_id(id, sonolus_id=session.sonolus_id)
 
     async with app.db_acquire() as conn:
         result = await conn.fetchrow(query)
@@ -39,4 +36,4 @@ async def main(request: Request, id: str, session: Session = get_session()):
                 status_code=status.HTTP_404_NOT_FOUND, detail=f"Chart not found."
             )
 
-    return {"data": result.model_dump, "asset_base_url": app.s3_asset_base_url}
+    return {"data": result.model_dump(), "asset_base_url": app.s3_asset_base_url}

@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from typing import Optional, Literal
 
-from query import ExecutableQuery, SelectQuery
+from database.query import ExecutableQuery, SelectQuery
 from helpers.models import OAuth, SessionData, Account
 
 """
@@ -51,13 +51,11 @@ def add_oauth(
             WHERE sonolus_id = $1;
         """,
         sonolus_id,
-        oauth.model_dump()
+        oauth.model_dump(),
     )
 
 
-def delete_oauth(
-    sonolus_id: str, service: Literal["discord"]
-) -> ExecutableQuery:
+def delete_oauth(sonolus_id: str, service: Literal["discord"]) -> ExecutableQuery:
     assert service in ["discord"]
 
     return ExecutableQuery(
@@ -66,7 +64,7 @@ def delete_oauth(
             SET oauth_details = oauth_details - '{service}'
             WHERE sonolus_id = $1;
         """,
-        sonolus_id
+        sonolus_id,
     )
 
 
@@ -82,7 +80,7 @@ def generate_get_oauth_query(
             FROM accounts
             WHERE sonolus_id = $1;
         """,
-        sonolus_id
+        sonolus_id,
     )
 
 
@@ -95,7 +93,7 @@ def generate_create_account_query(
             VALUES ($1, $2);
         """,
         sonolus_id,
-        sonolus_handle
+        sonolus_handle,
     )
 
 
@@ -171,7 +169,7 @@ def create_account_if_not_exists_and_new_session(
         sonolus_handle,
         session_type,
         session_key,
-        str(expiry_time)
+        str(expiry_time),
     )
 
 
@@ -209,30 +207,26 @@ def update_cooldown(sonolus_id: str, time_to_add: timedelta) -> ExecutableQuery:
             WHERE sonolus_id = $2
         """,
         cooldown_until,
-        sonolus_id
+        sonolus_id,
     )
 
 
-def delete_account(
-    sonolus_id: str, confirm_change: bool = False
-) -> ExecutableQuery:
+def delete_account(sonolus_id: str, confirm_change: bool = False) -> ExecutableQuery:
     if not confirm_change:
         raise ValueError(
             "Deletion not confirmed. Ensure you are deleting the old chart files from S3 to ensure there is no hanging files."
         )
-    
+
     return ExecutableQuery(
         """
             DELETE FROM accounts
             WHERE sonolus_id = $1;
         """,
-        sonolus_id
+        sonolus_id,
     )
 
 
-def link_discord_id(
-    sonolus_id: str, discord_id: int
-) -> ExecutableQuery:
+def link_discord_id(sonolus_id: str, discord_id: int) -> ExecutableQuery:
     return ExecutableQuery(
         """
             UPDATE accounts
@@ -240,11 +234,11 @@ def link_discord_id(
             WHERE sonolus_id = $2;
         """,
         discord_id,
-        sonolus_id
+        sonolus_id,
     )
 
 
-def link_patreon_id( # Merge into one function with link_discord_id?
+def link_patreon_id(  # Merge into one function with link_discord_id?
     sonolus_id: str, patreon_id: str
 ) -> ExecutableQuery:
     return ExecutableQuery(
@@ -254,7 +248,7 @@ def link_patreon_id( # Merge into one function with link_discord_id?
             WHERE sonolus_id = $2;
         """,
         patreon_id,
-        sonolus_id
+        sonolus_id,
     )
 
 
@@ -270,9 +264,7 @@ def set_mod(sonolus_id: str, mod_status: bool) -> ExecutableQuery:
     )
 
 
-def set_banned(
-    sonolus_id: str, banned_status: bool
-) -> ExecutableQuery:
+def set_banned(sonolus_id: str, banned_status: bool) -> ExecutableQuery:
     return ExecutableQuery(
         """
             UPDATE accounts
@@ -294,5 +286,5 @@ def update_chart_upload_cooldown(
             WHERE sonolus_id = $2;
         """,
         cooldown_timestamp,
-        sonolus_id
+        sonolus_id,
     )

@@ -31,6 +31,7 @@ MAX_FILE_SIZES = {
     "background": 10 * 1024 * 1024,  # 10 MB
 }
 
+
 @router.post("/")
 async def main(
     request: Request,
@@ -50,6 +51,17 @@ async def main(
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors())
 
+    if (
+        (data.description and len(data.description) > 250)
+        or (len(data.artists) > 50)
+        or (len(data.title) > 50)
+        or (len(data.author) > 20)
+        or (data.tags and any(len(tag) > 10 for tag in data.tags))
+    ):
+        raise HTTPException(
+            status=status.HTTP_400_BAD_REQUEST, detail="Length limits exceeded"
+        )
+
     user = await session.user()
 
     if False:  # XXX: check and confirm
@@ -68,9 +80,7 @@ async def main(
         user_resp = await app.oauth.discord.get("users/@me", token=discord_oauth)
         if user_resp.status_code != 200:
             # delete oauth if invalid
-            query = accounts.delete_oauth(
-                session.sonolus_id, "discord"
-            )
+            query = accounts.delete_oauth(session.sonolus_id, "discord")
             async with app.db_acquire() as conn:
                 await conn.execute(query)
             return JSONResponse(content={}, status_code=403)
@@ -88,7 +98,7 @@ async def main(
 
     cooldown = user["chart_upload_cooldown"]
     if cooldown:
-        now = datetime.now(timezone.utc)
+        now = datetime.now()
         if now < cooldown:
             remaining = cooldown - now
             minutes, seconds = divmod(int(remaining.total_seconds()), 60)
@@ -132,9 +142,7 @@ async def main(
         }
     )
 
-    valid, sus, usc, leveldata, _ = sonolus_converters.detect(
-        (await chart_file.read())
-    )
+    valid, sus, usc, leveldata, _ = sonolus_converters.detect((await chart_file.read()))
     await chart_file.seek(0)
     if not valid:
         raise HTTPException(
@@ -259,7 +267,7 @@ async def main(
             tags=data.tags or [],
             description=data.description,
             preview_file_hash=preview_hash if preview_hash else None,
-            background_file_hash=background_hash if background_image else None
+            background_file_hash=background_hash if background_image else None,
         )
     )
     query2 = accounts.update_cooldown(

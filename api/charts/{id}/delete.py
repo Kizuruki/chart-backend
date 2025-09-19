@@ -19,23 +19,19 @@ async def main(
 ):
     app: ChartFastAPI = request.app
 
-    if len(id) != 37 or not id.startswith("UnCh-") or not id[5:].isalnum():
+    if len(id) != 32 or not id.isalnum():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chart ID."
         )
 
-    chart_id = id.removeprefix("UnCh-")
-
-    query = charts.delete_chart(
-        chart_id, session.sonolus_id, confirm_change=True
-    )
+    query = charts.delete_chart(id, session.sonolus_id, confirm_change=True)
     async with app.db_acquire() as conn:
         exists = await conn.fetchrow(query)
     if exists:
         async with app.s3_session_getter() as s3:
             bucket = await s3.Bucket(app.s3_bucket)
             tasks = []
-            prefix = f"{session.sonolus_id}/{chart_id}/"
+            prefix = f"{session.sonolus_id}/{id}/"
             objects = [obj async for obj in bucket.objects.filter(Prefix=prefix)]
             if objects:
                 tasks = [obj.delete() for obj in objects]

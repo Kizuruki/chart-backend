@@ -16,15 +16,17 @@ async def main(
     request: Request,
     id: str,
     data: ChartVisibilityData,
-    session: Session = get_session(enforce_auth=True, enforce_type="external", allow_banned_users=False)
+    session: Session = get_session(
+        enforce_auth=True, enforce_type="external", allow_banned_users=False
+    ),
 ):
+    if len(id) != 32 or not id.isalnum():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chart ID."
+        )
     app: ChartFastAPI = request.app
-    # this is a PUBLIC route, don't check for private auth, only user auth
-
     query = charts.update_status(
-        chart_id=id,
-        sonolus_id=(await session.user()).user_id,
-        status=data.status
+        chart_id=id, sonolus_id=(await session.user()).sonolus_id, status=data.status
     )
 
     async with app.db_acquire() as conn:

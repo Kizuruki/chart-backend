@@ -6,7 +6,6 @@ from core import ChartFastAPI
 from database import charts
 
 from helpers.session import get_session, Session
-from helpers.models import ChartList
 
 router = APIRouter()
 
@@ -25,9 +24,9 @@ async def main(
     title_includes: Optional[str] = Query(None),
     description_includes: Optional[str] = Query(None),
     artists_includes: Optional[str] = Query(None),
-    sort_by: Literal[
-        "created_at", "rating", "likes", "decaying_likes", "abc"
-    ] = Query("created_at"),
+    sort_by: Literal["created_at", "rating", "likes", "decaying_likes", "abc"] = Query(
+        "created_at"
+    ),
     sort_order: Literal["desc", "asc"] = Query("desc"),
     status: Literal["PUBLIC", "PUBLIC_MINE", "UNLISTED", "PRIVATE", "ALL"] = Query(
         "PUBLIC"
@@ -69,9 +68,7 @@ async def main(
                 status_code=fstatus.HTTP_400_BAD_REQUEST,
                 detail="Can't use random for non-public charts.",
             )
-        query = charts.get_random_charts(
-            item_page_count // 2, sonolus_id=sonolus_id
-        )
+        query = charts.get_random_charts(item_page_count // 2, sonolus_id=sonolus_id)
         async with app.db_acquire() as conn:
             rows = await conn.fetch(query)
         # it does convert almost-dict to model to dict, but that adds a layer of "security"
@@ -80,7 +77,7 @@ async def main(
     if type == "quick":
         if sort_by == "abc":
             sort_order = "asc" if sort_order == "desc" else "desc"
-        quick_list_query = charts.get_chart_list(
+        count_query, quick_list_query = charts.get_chart_list(
             page=page,
             items_per_page=item_page_count,
             meta_includes=meta_includes,
@@ -90,7 +87,7 @@ async def main(
     else:
         if sort_by == "abc":
             sort_order = "asc" if sort_order == "desc" else "desc"
-        chart_list_query = charts.get_chart_list(
+        count_query, chart_list_query = charts.get_chart_list(
             page=page,
             items_per_page=item_page_count,
             min_rating=min_rating,
@@ -111,10 +108,19 @@ async def main(
         )
 
     async with app.db_acquire() as conn:
-        rows = await conn.fetch(quick_list_query if type == "quick" else chart_list_query)
-        total = rows[0].total_count if rows else 0
-        page_count = (total + item_page_count - 1) // item_page_count
-        data = [row.model_dump for row in rows] if rows else []
+        count = (await conn.fetchrow(count_query)).model_dump()
+        if count["total_count"] == 0:
+            data = []
+            page_count = 0
+        elif page * item_page_count >= count["total_count"]:
+            data = []
+            page_count = (count["total_count"] + item_page_count - 1) // item_page_count
+        else:
+            rows = await conn.fetch(
+                quick_list_query if type == "quick" else chart_list_query
+            )
+            data = [row.model_dump() for row in rows]
+            page_count = (count["total_count"] + item_page_count - 1) // item_page_count
 
     return {
         "pageCount": page_count,

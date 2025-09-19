@@ -1,6 +1,6 @@
 from typing import Tuple
 
-from query import ExecutableQuery, SelectQuery
+from database.query import ExecutableQuery, SelectQuery
 from helpers.models import ExternalLogin, DBID
 
 
@@ -12,7 +12,7 @@ def create_external_login(id_key: str) -> SelectQuery[DBID]:
             VALUES ($1, CURRENT_TIMESTAMP + INTERVAL '6 minutes')
             RETURNING id_key;
         """,
-        id_key
+        id_key,
     )
 
 
@@ -27,7 +27,7 @@ def get_external_login(
                 WHERE id_key = $1
                 AND expires_at >= CURRENT_TIMESTAMP;
             """,
-            id_key
+            id_key,
         )
     else:
         # NOTE: this doesn't check if the session gets deleted
@@ -41,13 +41,11 @@ def get_external_login(
                 AND expires_at >= CURRENT_TIMESTAMP
                 AND session_key IS NOT NULL;
             """,
-            id_key
+            id_key,
         )
 
 
-def update_session_key(
-    id_key: str, session_key: str
-) -> SelectQuery[ExternalLogin]:
+def update_session_key(id_key: str, session_key: str) -> SelectQuery[ExternalLogin]:
     return SelectQuery(
         ExternalLogin,
         """
@@ -59,7 +57,7 @@ def update_session_key(
             RETURNING id_key, session_key, expires_at;
         """,
         id_key,
-        session_key
+        session_key,
     )
 
 
@@ -70,5 +68,5 @@ def delete_external_login(id_key: str) -> ExecutableQuery:
             WHERE id_key = $1
             AND expires_at >= CURRENT_TIMESTAMP;
         """,
-        id_key
+        id_key,
     )

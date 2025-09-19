@@ -117,7 +117,7 @@ def load_routes(folder, cleanup: bool = True):
                 route.router.tags + [route_version]
                 if isinstance(route.router.tags, list)
                 else [route_version]
-            )
+            ),
         )
 
         print(f"[API] Loaded Route {route_name}")

@@ -1,11 +1,10 @@
 import uuid
 
-from query import ExecutableQuery, SelectQuery
+from database.query import ExecutableQuery, SelectQuery
 from helpers.models import Comment
 
-def create_comment(
-    sonolus_id: str, chart_id: str, content: str
-) -> ExecutableQuery:
+
+def create_comment(sonolus_id: str, chart_id: str, content: str) -> ExecutableQuery:
     comment_id = str(uuid.uuid4())
     return ExecutableQuery(
         """
@@ -15,7 +14,7 @@ def create_comment(
         comment_id,
         sonolus_id,
         content,
-        chart_id
+        chart_id,
     )
 
 
@@ -26,7 +25,7 @@ def delete_comment(comment_id: str) -> ExecutableQuery:
             SET deleted_at = CURRENT_TIMESTAMP
             WHERE id = $1;
         """,
-        comment_id
+        comment_id,
     )
 
 
@@ -51,7 +50,7 @@ def get_comments(
         """,
         chart_id,
         limit,
-        offset
+        offset,
     )
 
 
@@ -76,5 +75,5 @@ def get_comments_by_account(
         """,
         sonolus_id,
         limit,
-        offset
+        offset,
     )

@@ -1,7 +1,16 @@
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Union
 
-from query import ExecutableQuery, SelectQuery
-from helpers.models import Chart, ChartDBResponse, ChartByID, ChartList, DBID
+from database.query import ExecutableQuery, SelectQuery
+from helpers.models import (
+    Chart,
+    ChartDBResponse,
+    ChartByID,
+    Count,
+    DBID,
+    ChartByIDLiked,
+    ChartDBResponseLiked,
+)
+
 
 def create_chart(chart: Chart) -> SelectQuery[DBID]:
     tags_str = chart.tags if chart.tags else []
@@ -29,7 +38,7 @@ def create_chart(chart: Chart) -> SelectQuery[DBID]:
         chart.preview_file_hash if chart.preview_file_hash else None,
         chart.background_file_hash if chart.background_file_hash else None,
         chart.background_v1_file_hash,
-        chart.background_v3_file_hash
+        chart.background_v3_file_hash,
     )
 
 
@@ -53,7 +62,9 @@ def get_chart_list(
     sonolus_id: Optional[str] = None,
     meta_includes: Optional[str] = None,
     owned_by: Optional[str] = None,
-) -> SelectQuery[ChartList]:
+) -> tuple[
+    SelectQuery[Count], SelectQuery[Union[ChartDBResponse, ChartDBResponseLiked]]
+]:
     # Inner SELECT (without pagination)
     inner_select = """
         SELECT 
@@ -162,26 +173,36 @@ def get_chart_list(
         WITH chart_data AS (
             {inner_select}
         )
-        SELECT *,
-               (SELECT COUNT(*) FROM chart_data) AS total_count
+        SELECT *
         FROM chart_data
         ORDER BY {sort_column} {sort_order_sql}
         LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}
     """
 
-    params.append(items_per_page)
-    params.append(page * items_per_page)
+    count_query = f"""
+        WITH chart_data AS (
+            {inner_select}
+        )
+        SELECT COUNT(*) AS total_count FROM chart_data
+    """
 
-    return SelectQuery(
-        ChartList,
-        query,
-        *params
+    count_params = tuple(params)
+
+    data_params = tuple(params) + (items_per_page, page * items_per_page)
+
+    return (
+        SelectQuery(Count, count_query, *count_params),
+        SelectQuery(
+            ChartDBResponse if not sonolus_id else ChartDBResponseLiked,
+            query,
+            *data_params,
+        ),
     )
 
 
 def get_random_charts(
     return_count: int, sonolus_id: Optional[str] = None
-) -> SelectQuery[ChartDBResponse]:
+) -> SelectQuery[Union[ChartDBResponse, ChartDBResponseLiked]]:
     """
     Generate a SELECT query for retrieving a random set of charts.
     If sonolus_id is provided, return a boolean 'liked' for each chart.
@@ -229,6 +250,8 @@ def get_random_charts(
                 c.chart_file_hash,
                 c.preview_file_hash,
                 c.background_file_hash,
+                c.background_v3_file_hash,
+                c.background_v1_file_hash,
                 c.status,
                 c.rating,
                 c.like_count,
@@ -244,12 +267,12 @@ def get_random_charts(
             ORDER BY RANDOM()
             LIMIT $1
         """
-        return SelectQuery(ChartDBResponse, query, return_count, sonolus_id)
+        return SelectQuery(ChartDBResponseLiked, query, return_count, sonolus_id)
 
 
 def get_chart_by_id(
     chart_id: str, sonolus_id: Optional[str] = None
-) -> SelectQuery[ChartByID]:
+) -> SelectQuery[Union[ChartByID, ChartByIDLiked]]:
     """
     Generate a query to get a chart by its ID.
     If sonolus_id is provided, also return whether this user has liked the chart.
@@ -269,6 +292,7 @@ def get_chart_by_id(
                 ON c.id = cl.chart_id AND cl.sonolus_id = $2
             WHERE c.id = $1;
         """
+        return SelectQuery(ChartByIDLiked, query, *params)
     else:
         query = """
             SELECT 
@@ -278,8 +302,7 @@ def get_chart_by_id(
             JOIN accounts a ON c.author = a.sonolus_id
             WHERE c.id = $1;
         """
-
-    return SelectQuery(ChartByID, query, *params)
+        return SelectQuery(ChartByID, query, *params)
 
 
 def delete_chart(
@@ -297,7 +320,7 @@ def delete_chart(
                 WHERE id = $1
                 RETURNING id;
             """,
-            chart_id
+            chart_id,
         )
     else:
         return SelectQuery(
@@ -308,7 +331,7 @@ def delete_chart(
                 RETURNING id;
             """,
             chart_id,
-            sonolus_id
+            sonolus_id,
         )
 
 
@@ -451,7 +474,7 @@ def add_like(chart_id: str, sonolus_id: str) -> ExecutableQuery:
             ON CONFLICT DO NOTHING;
         """,
         chart_id,
-        sonolus_id
+        sonolus_id,
     )
 
 
@@ -471,7 +494,7 @@ def remove_like(chart_id: str, sonolus_id: str) -> ExecutableQuery:
             );
         """,
         chart_id,
-        sonolus_id
+        sonolus_id,
     )
 
 
@@ -488,5 +511,5 @@ def update_status(
         """,
         status,
         chart_id,
-        sonolus_id
+        sonolus_id,
     )
