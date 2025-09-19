@@ -1,53 +1,39 @@
-from typing import List, Optional, Tuple, Literal
+from typing import List, Optional, Literal
 
+from query import ExecutableQuery, SelectQuery
+from helpers.models import Chart, ChartDBResponse, ChartByID, ChartList, DBID
 
-def generate_create_chart_query(
-    chart_id: str,
-    author: str,
-    rating: int,
-    chart_author: str,
-    title: str,
-    artists: str,
-    jacket_hash: str,
-    music_hash: str,
-    chart_hash: str,
-    v1_hash: str,
-    v3_hash: str,
-    tags: List[str] = [],
-    description: Optional[str] = None,
-    preview_hash: Optional[str] = None,
-    background_hash: Optional[str] = None,
-) -> Tuple[str, Tuple]:
-    tags_str = tags if tags else []
+def create_chart(chart: Chart) -> SelectQuery[DBID]:
+    tags_str = chart.tags if chart.tags else []
 
-    query = """
-        INSERT INTO charts (id, author, rating, description, chart_author, title, artists, tags, jacket_file_hash, music_file_hash, chart_file_hash, preview_file_hash, background_file_hash, background_v1_file_hash, background_v3_file_hash, status, created_at, updated_at)
-        VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'PRIVATE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-        )
-        RETURNING id;
-    """
-
-    return query, (
-        chart_id,
-        author,
-        rating,
-        description,
-        chart_author,
-        title,
-        artists,
+    return SelectQuery(
+        DBID,
+        """
+            INSERT INTO charts (id, author, rating, description, chart_author, title, artists, tags, jacket_file_hash, music_file_hash, chart_file_hash, preview_file_hash, background_file_hash, background_v1_file_hash, background_v3_file_hash, status, created_at, updated_at)
+            VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'PRIVATE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            )
+            RETURNING id;
+        """,
+        chart.id,
+        chart.author,
+        chart.rating,
+        chart.description,
+        chart.chart_author,
+        chart.title,
+        chart.artists,
         tags_str,
-        jacket_hash,
-        music_hash,
-        chart_hash,
-        preview_hash if preview_hash else None,
-        background_hash if background_hash else None,
-        v1_hash,
-        v3_hash,
+        chart.jacket_file_hash,
+        chart.music_file_hash,
+        chart.chart_file_hash,
+        chart.preview_file_hash if chart.preview_file_hash else None,
+        chart.background_file_hash if chart.background_file_hash else None,
+        chart.background_v1_file_hash,
+        chart.background_v3_file_hash
     )
 
 
-def generate_get_chart_list_query(
+def get_chart_list(
     page: int,
     items_per_page: int,
     min_rating: Optional[int] = None,
@@ -67,7 +53,7 @@ def generate_get_chart_list_query(
     sonolus_id: Optional[str] = None,
     meta_includes: Optional[str] = None,
     owned_by: Optional[str] = None,
-) -> Tuple[str, Tuple]:
+) -> SelectQuery[ChartList]:
     # Inner SELECT (without pagination)
     inner_select = """
         SELECT 
@@ -186,12 +172,16 @@ def generate_get_chart_list_query(
     params.append(items_per_page)
     params.append(page * items_per_page)
 
-    return query, tuple(params)
+    return SelectQuery(
+        ChartList,
+        query,
+        *params
+    )
 
 
-def generate_get_random_charts_query(
+def get_random_charts(
     return_count: int, sonolus_id: Optional[str] = None
-) -> Tuple[str, Tuple]:
+) -> SelectQuery[ChartDBResponse]:
     """
     Generate a SELECT query for retrieving a random set of charts.
     If sonolus_id is provided, return a boolean 'liked' for each chart.
@@ -224,7 +214,7 @@ def generate_get_random_charts_query(
             ORDER BY RANDOM()
             LIMIT $1
         """
-        return query, (return_count,)
+        return SelectQuery(ChartDBResponse, query, return_count)
     else:
         query = """
             SELECT 
@@ -254,12 +244,12 @@ def generate_get_random_charts_query(
             ORDER BY RANDOM()
             LIMIT $1
         """
-        return query, (return_count, sonolus_id)
+        return SelectQuery(ChartDBResponse, query, return_count, sonolus_id)
 
 
-def generate_get_chart_by_id_query(
+def get_chart_by_id(
     chart_id: str, sonolus_id: Optional[str] = None
-) -> Tuple[str, Tuple]:
+) -> SelectQuery[ChartByID]:
     """
     Generate a query to get a chart by its ID.
     If sonolus_id is provided, also return whether this user has liked the chart.
@@ -289,36 +279,40 @@ def generate_get_chart_by_id_query(
             WHERE c.id = $1;
         """
 
-    return query, tuple(params)
+    return SelectQuery(ChartByID, query, *params)
 
 
-def generate_delete_chart_query(
+def delete_chart(
     chart_id: str, sonolus_id: str = None, confirm_change: bool = False
-) -> Tuple[str, Tuple[str]]:
+) -> SelectQuery[DBID]:
     if not confirm_change:
         raise ValueError(
             "Deletion not confirmed. Ensure you are deleting the old files from S3 to ensure there is no hanging files."
         )
     if not sonolus_id:
-        return """
-            DELETE FROM charts
-            WHERE id = $1
-            RETURNING id;
-        """, (
-            chart_id,
+        return SelectQuery(
+            DBID,
+            """
+                DELETE FROM charts
+                WHERE id = $1
+                RETURNING id;
+            """,
+            chart_id
         )
     else:
-        return """
-            DELETE FROM charts
-            WHERE id = $1 AND author = $2
-            RETURNING id;
-        """, (
+        return SelectQuery(
+            DBID,
+            """
+                DELETE FROM charts
+                WHERE id = $1 AND author = $2
+                RETURNING id;
+            """,
             chart_id,
-            sonolus_id,
+            sonolus_id
         )
 
 
-def generate_update_metadata_query(
+def update_metadata(
     chart_id: str,
     chart_author: Optional[str] = None,
     rating: Optional[int] = None,
@@ -327,7 +321,7 @@ def generate_update_metadata_query(
     artists: Optional[str] = None,
     tags: Optional[List[str]] = None,
     update_none_description: bool = False,
-) -> Tuple[str, Tuple]:
+) -> ExecutableQuery:
     if not any(
         [
             rating,
@@ -374,10 +368,10 @@ def generate_update_metadata_query(
         WHERE id = ${len(args)};
     """
 
-    return query, tuple(args)
+    return ExecutableQuery(query, *args)
 
 
-def generate_update_file_hash_query(
+def update_file_hash(
     chart_id: str,
     jacket_hash: Optional[str] = None,
     v1_hash: Optional[str] = None,
@@ -389,7 +383,7 @@ def generate_update_file_hash_query(
     confirm_change: bool = False,
     update_none_preview: bool = False,
     update_none_background: bool = False,
-) -> Tuple[str, Tuple]:
+) -> ExecutableQuery:
     if not confirm_change:
         raise ValueError(
             "File hash change is not confirmed. Ensure you are deleting the old files from S3 to avoid dangling files."
@@ -438,53 +432,61 @@ def generate_update_file_hash_query(
         WHERE id = ${len(args)};
     """
 
-    return query, tuple(args)
+    return ExecutableQuery(query, *args)
 
 
-def generate_add_like_query(chart_id: str, sonolus_id: str) -> Tuple[str, Tuple]:
-    query = """
-    INSERT INTO chart_likes (chart_id, sonolus_id, created_at)
-    SELECT $1, $2, CURRENT_TIMESTAMP
-    WHERE EXISTS (
-        SELECT 1 FROM charts
-        WHERE id = $1
-        AND (
-            status IN ('UNLISTED', 'PUBLIC')
-            OR (status = 'PRIVATE' AND author = $2)
-        )
+def add_like(chart_id: str, sonolus_id: str) -> ExecutableQuery:
+    return ExecutableQuery(
+        """
+            INSERT INTO chart_likes (chart_id, sonolus_id, created_at)
+            SELECT $1, $2, CURRENT_TIMESTAMP
+            WHERE EXISTS (
+                SELECT 1 FROM charts
+                WHERE id = $1
+                AND (
+                    status IN ('UNLISTED', 'PUBLIC')
+                    OR (status = 'PRIVATE' AND author = $2)
+                )
+            )
+            ON CONFLICT DO NOTHING;
+        """,
+        chart_id,
+        sonolus_id
     )
-    ON CONFLICT DO NOTHING;
-    """
-    return query, (chart_id, sonolus_id)
 
 
-def generate_remove_like_query(chart_id: str, sonolus_id: str) -> Tuple[str, Tuple]:
-    query = """
-    DELETE FROM chart_likes
-    WHERE chart_id = $1
-      AND sonolus_id = $2
-      AND EXISTS (
-          SELECT 1 FROM charts
-          WHERE id = $1
-          AND (
-              status IN ('UNLISTED', 'PUBLIC')
-              OR (status = 'PRIVATE' AND author = $2)
-          )
-      );
-    """
-    return query, (chart_id, sonolus_id)
+def remove_like(chart_id: str, sonolus_id: str) -> ExecutableQuery:
+    return ExecutableQuery(
+        """
+            DELETE FROM chart_likes
+            WHERE chart_id = $1
+            AND sonolus_id = $2
+            AND EXISTS (
+                SELECT 1 FROM charts
+                WHERE id = $1
+                AND (
+                    status IN ('UNLISTED', 'PUBLIC')
+                    OR (status = 'PRIVATE' AND author = $2)
+                )
+            );
+        """,
+        chart_id,
+        sonolus_id
+    )
 
 
-def generate_update_status_query(
+def update_status(
     chart_id: str, sonolus_id: str, status: Literal["PUBLIC", "UNLISTED", "PRIVATE"]
-) -> Tuple[str, Tuple]:
-    return """
-        UPDATE charts
-        SET status = $1, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2 AND author = $3
-        RETURNING id;
-    """, (
+) -> SelectQuery[DBID]:
+    return SelectQuery(
+        DBID,
+        """
+            UPDATE charts
+            SET status = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2 AND author = $3
+            RETURNING id;
+        """,
         status,
         chart_id,
-        sonolus_id,
+        sonolus_id
     )
