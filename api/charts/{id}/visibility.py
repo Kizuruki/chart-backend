@@ -2,58 +2,36 @@ import uuid, io, asyncio
 from core import ChartFastAPI
 
 from fastapi import APIRouter, Request, HTTPException, status, UploadFile, Form
+from helpers.session import get_session, Session
 
-from database import charts, accounts
+from database import charts
 
 from helpers.models import ChartVisibilityData
 
 router = APIRouter()
 
 
-def setup():
-    @router.patch("/")
-    async def main(
-        request: Request,
-        id: str,
-        data: ChartVisibilityData,
-    ):
-        app: ChartFastAPI = request.app
-        auth = request.headers.get("authorization")
-        # this is a PUBLIC route, don't check for private auth, only user auth
-        if not auth:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in."
-            )
-        session_data = app.decode_key(auth)
-        if session_data.type != "external":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token type."
-            )
-        query, args = accounts.generate_get_account_from_session_query(
-            session_data.user_id, auth, "external"
-        )
-        async with app.db.acquire() as conn:
-            result = await conn.fetchrow(query, *args)
-            if not result:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in."
-                )
-            if result["banned"]:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN, detail="User banned."
-                )
+@router.patch("/")
+async def main(
+    request: Request,
+    id: str,
+    data: ChartVisibilityData,
+    session: Session = get_session(enforce_auth=True, enforce_type="external", allow_banned_users=False)
+):
+    app: ChartFastAPI = request.app
+    # this is a PUBLIC route, don't check for private auth, only user auth
 
-        query, args = charts.generate_update_status_query(
-            chart_id=id,
-            status=data.status,
-            sonolus_id=session_data.user_id,
-        )
+    query = charts.update_status(
+        chart_id=id,
+        sonolus_id=(await session.user()).user_id,
+        status=data.status
+    )
 
-        async with app.db.acquire() as conn:
-            result = await conn.fetchrow(query, *args)
-            if result:
-                return {"id": result["id"]}
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f'Chart with ID "{id}" not found for this user.',
-            )
+    async with app.db_acquire() as conn:
+        result = await conn.fetchrow(query)
+        if result:
+            return {"id": result.id}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f'Chart with ID "{id}" not found for this user.',
+        )

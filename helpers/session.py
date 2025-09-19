@@ -3,6 +3,7 @@ from core import ChartFastAPI
 from typing import Literal, Optional
 from database import accounts
 from fastapi import Depends
+from helpers.models import Account
 
 
 def get_session(
@@ -35,14 +36,14 @@ class Session:
         self._user_fetched = False
         self._user = None
 
-    async def user(self) -> dict:
+    async def user(self) -> Account:
         if not self._user_fetched:
-            query, args = accounts.generate_get_account_from_session_query(
+            query = accounts.get_account_from_session(
                 self.session_data.user_id, self.auth, self.session_data.type
             )
 
-            async with self.app.db.acquire() as conn:
-                result = await conn.fetchrow(query, *args)
+            async with self.app.db_acquire() as conn:
+                result = await conn.fetchrow(query)
 
                 if not result and self.enforce_auth:
                     raise HTTPException(
@@ -50,7 +51,7 @@ class Session:
                         detail="Not logged in.",
                     )
 
-                self._user = dict(result)
+                self._user = result
                 self._user_fetched = True
 
         return self._user
@@ -76,7 +77,7 @@ class Session:
                 )
 
             if not self.allow_banned_users:
-                if (await self.user())["banned"]:
+                if (await self.user()).banned:
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN, detail="User banned."
                     )

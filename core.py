@@ -5,7 +5,8 @@ from fastapi.responses import JSONResponse
 from helpers.config_loader import ConfigType
 from helpers.models import SessionKeyData
 from concurrent.futures import ThreadPoolExecutor
-from typing import Union
+from contextlib import asynccontextmanager
+from database import DBConnWrapper
 import aioboto3
 import asyncpg
 
@@ -64,9 +65,12 @@ class ChartFastAPI(FastAPI):
             ssl="disable",  # XXX: todo, lazy for now
         )
 
-    def decode_key(
-        self, session_key: str, return_dict: bool = False
-    ) -> Union[SessionKeyData, dict]:
+    @asynccontextmanager
+    async def db_acquire(self):
+        async with self.db.acquire() as conn:
+            yield DBConnWrapper(conn)
+
+    def decode_key(self, session_key: str) -> SessionKeyData:
         try:
             encoded_data, signature = session_key.rsplit(".", 1)
             recalculated_signature = hmac.new(
@@ -74,11 +78,7 @@ class ChartFastAPI(FastAPI):
             ).hexdigest()
             if recalculated_signature == signature:
                 decoded_data = base64.urlsafe_b64decode(encoded_data).decode()
-                return (
-                    json.loads(decoded_data)
-                    if return_dict
-                    else SessionKeyData.model_validate_json(decoded_data)
-                )
+                return SessionKeyData.model_validate_json(decoded_data)
         except Exception:
             pass
         raise HTTPException(

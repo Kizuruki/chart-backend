@@ -110,17 +110,15 @@ def load_routes(folder, cleanup: bool = True):
             del route_name_parts[-1]
 
         route_name = ".".join(route_name_parts)
-
-        route.router.prefix = "/" + route_name.replace(".", "/")
-        route.router.tags = (
-            route.router.tags + [route_version]
-            if isinstance(route.router.tags, list)
-            else [route_version]
+        app.include_router(
+            route.router,
+            prefix="/" + route_name.replace(".", "/"),
+            tags=(
+                route.router.tags + [route_version]
+                if isinstance(route.router.tags, list)
+                else [route_version]
+            )
         )
-
-        route.setup()
-
-        app.include_router(route.router)
 
         print(f"[API] Loaded Route {route_name}")
 
