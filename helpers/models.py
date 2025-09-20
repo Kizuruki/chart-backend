@@ -194,6 +194,7 @@ class Comment(BaseModel):
     created_at: datetime
     deleted_at: Optional[datetime] = None
     chart_id: str
+    owner: bool
 
 
 class ExternalLogin(BaseModel):
