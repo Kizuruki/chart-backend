@@ -23,8 +23,11 @@ async def main(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chart ID."
         )
-
-    query = charts.delete_chart(id, session.sonolus_id, confirm_change=True)
+    user = await session.user()
+    if user.mod:
+        query = charts.delete_chart(id, confirm_change=True)
+    else:
+        query = charts.delete_chart(id, session.sonolus_id, confirm_change=True)
     async with app.db_acquire() as conn:
         exists = await conn.fetchrow(query)
     if exists:

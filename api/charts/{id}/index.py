@@ -31,6 +31,17 @@ async def main(request: Request, id: str, session: Session = get_session()):
                 status_code=status.HTTP_404_NOT_FOUND, detail=f"Chart not found."
             )
 
+        user = None
+        if session.auth:
+            user = await session.user()
+
+        if user and user.mod:
+            return {
+                "data": result.model_dump(),
+                "asset_base_url": app.s3_asset_base_url,
+                "mod": True,
+            }
+
         if result.status == "PRIVATE" and result.author != session.sonolus_id:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail=f"Chart not found."
