@@ -10,7 +10,7 @@ from database import charts, accounts
 from helpers.models import ChartUploadData, Chart
 from helpers.hashing import calculate_sha1
 from helpers.file_checks import get_and_check_file
-from helpers.backgrounds import generate_backgrounds
+from helpers.backgrounds import generate_backgrounds_resize_jacket
 from helpers.session import get_session, Session
 
 import sonolus_converters
@@ -132,7 +132,28 @@ async def main(
     chart_id = str(uuid.uuid4()).replace("-", "")
 
     jacket_bytes = await get_and_check_file(jacket_image, "image/png")
+    v1, v3, jacket_bytes = await app.run_blocking(
+        generate_backgrounds_resize_jacket, jacket_bytes
+    )
     jacket_hash = calculate_sha1(jacket_bytes)
+    v1_hash = calculate_sha1(v1)
+    s3_uploads.append(
+        {
+            "path": f"{session.sonolus_id}/{chart_id}/{v1_hash}",
+            "hash": v1_hash,
+            "bytes": v1,
+            "content-type": "image/png",
+        }
+    )
+    v3_hash = calculate_sha1(v3)
+    s3_uploads.append(
+        {
+            "path": f"{session.sonolus_id}/{chart_id}/{v3_hash}",
+            "hash": v3_hash,
+            "bytes": v3,
+            "content-type": "image/png",
+        }
+    )
     s3_uploads.append(
         {
             "path": f"{session.sonolus_id}/{chart_id}/{jacket_hash}",
@@ -214,25 +235,6 @@ async def main(
                 "content-type": "image/png",
             }
         )
-    v1, v3 = await app.run_blocking(generate_backgrounds, jacket_bytes)
-    v1_hash = calculate_sha1(v1)
-    s3_uploads.append(
-        {
-            "path": f"{session.sonolus_id}/{chart_id}/{v1_hash}",
-            "hash": v1_hash,
-            "bytes": v1,
-            "content-type": "image/png",
-        }
-    )
-    v3_hash = calculate_sha1(v3)
-    s3_uploads.append(
-        {
-            "path": f"{session.sonolus_id}/{chart_id}/{v3_hash}",
-            "hash": v3_hash,
-            "bytes": v3,
-            "content-type": "image/png",
-        }
-    )
     async with app.s3_session_getter() as s3:
         bucket = await s3.Bucket(app.s3_bucket)
         tasks = []

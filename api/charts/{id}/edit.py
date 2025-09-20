@@ -1,4 +1,4 @@
-import io, asyncio, re
+import io, asyncio
 
 from fastapi import APIRouter, Request, HTTPException, status, UploadFile, Form
 
@@ -8,7 +8,7 @@ import sonolus_converters
 
 from helpers.models import ChartEditData
 from helpers.hashing import calculate_sha1
-from helpers.backgrounds import generate_backgrounds
+from helpers.backgrounds import generate_backgrounds_resize_jacket
 
 from typing import Optional
 from helpers.file_checks import get_and_check_file
@@ -157,7 +157,10 @@ async def main(
                     }
                 )
                 old_deletes.append("jacket_file_hash")
-                v1, v3 = await app.run_blocking(generate_backgrounds, jacket_bytes)
+                v1, v3, jacket_bytes = await app.run_blocking(
+                    generate_backgrounds_resize_jacket, jacket_bytes
+                )
+                jacket_hash = calculate_sha1(jacket_bytes)
                 v1_hash = calculate_sha1(v1)
                 s3_uploads.append(
                     {
@@ -339,7 +342,7 @@ async def main(
             await asyncio.gather(*tasks)
     query = charts.update_metadata(
         chart_id=id,
-        chart_author=re.sub(r"#\d+$", "", data.author),
+        chart_author=data.author,
         rating=data.rating,
         title=data.title,
         artists=data.artists,
