@@ -32,7 +32,7 @@ def delete_comment(comment_id: int, sonolus_id: Optional[str] = None) -> SelectQ
             """
                 UPDATE comments
                 SET deleted_at = CURRENT_TIMESTAMP
-                WHERE id = $1 AND commenter = $2
+                WHERE id = $1 AND commenter = $2 AND deleted_at IS NULL
                 RETURNING id;
             """,
             comment_id,
@@ -43,7 +43,7 @@ def delete_comment(comment_id: int, sonolus_id: Optional[str] = None) -> SelectQ
         """
             UPDATE comments
             SET deleted_at = CURRENT_TIMESTAMP
-            WHERE id = $1
+            WHERE id = $1 AND deleted_at IS NULL
             RETURNING id;
         """,
         comment_id,
