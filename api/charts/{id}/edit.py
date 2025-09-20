@@ -148,6 +148,11 @@ async def main(
             jacket_bytes = await get_and_check_file(jacket_image, "image/png")
             jacket_hash = calculate_sha1(jacket_bytes)
             if not jacket_hash == old_chart_data.jacket_file_hash:
+                old_deletes.append("jacket_file_hash")
+                v1, v3, jacket_bytes = await app.run_blocking(
+                    generate_backgrounds_resize_jacket, jacket_bytes
+                )
+                jacket_hash = calculate_sha1(jacket_bytes)
                 s3_uploads.append(
                     {
                         "path": f"{session.sonolus_id}/{id}/{jacket_hash}",
@@ -156,11 +161,6 @@ async def main(
                         "content-type": "image/png",
                     }
                 )
-                old_deletes.append("jacket_file_hash")
-                v1, v3, jacket_bytes = await app.run_blocking(
-                    generate_backgrounds_resize_jacket, jacket_bytes
-                )
-                jacket_hash = calculate_sha1(jacket_bytes)
                 v1_hash = calculate_sha1(v1)
                 s3_uploads.append(
                     {
@@ -308,7 +308,7 @@ async def main(
         if hash_key in old_chart_data.model_fields
     )
     deleted_candidate_hashes = set(
-        old_chart_data[hash_key]
+        getattr(old_chart_data, hash_key)
         for hash_key in old_deletes
         if hash_key in old_chart_data.model_fields
     )
@@ -322,7 +322,7 @@ async def main(
                 if file_hash in alr_deleted_hashes:
                     continue
                 key = f"{session.sonolus_id}/{id}/{file_hash}"
-                obj = bucket.Object(key)
+                obj = await bucket.Object(key)
                 task = obj.delete()
                 tasks.append(task)
             alr_added_hashes = []

@@ -9,6 +9,10 @@ from PIL import Image
 def generate_backgrounds_resize_jacket(jacket_bytes: bytes):
     jacket_pil_image = Image.open(io.BytesIO(jacket_bytes))
     jacket_pil_image = jacket_pil_image.resize((1000, 1000)).convert("RGBA")
+    jacket_buffer = io.BytesIO()
+    jacket_pil_image.save(jacket_buffer, format="PNG")
+    jacket_bytes = jacket_buffer.getvalue()
+    jacket_buffer.close()
     v1 = pjsk_bg.render_v1(jacket_pil_image)
     v3 = pjsk_bg.render_v3(jacket_pil_image)
     v1_buffer = io.BytesIO()
@@ -19,8 +23,4 @@ def generate_backgrounds_resize_jacket(jacket_bytes: bytes):
     v3.save(v3_buffer, format="PNG")
     v3_bytes = v3_buffer.getvalue()
     v3_buffer.close()
-    jacket_buffer = io.BytesIO()
-    jacket_pil_image.save(jacket_buffer, format="PNG")
-    jacket_bytes = jacket_buffer.getvalue()
-    jacket_buffer.close()
     return v1_bytes, v3_bytes, jacket_bytes
