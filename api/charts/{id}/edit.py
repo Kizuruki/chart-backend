@@ -145,7 +145,7 @@ async def main(
                 detail="Uploaded files exceed file size limit.",
             )
         if data.includes_jacket:
-            jacket_bytes = await get_and_check_file(jacket_image, "image/png")
+            jacket_bytes = await get_and_check_file(jacket_image, "image")
             jacket_hash = calculate_sha1(jacket_bytes)
             if not jacket_hash == old_chart_data.jacket_file_hash:
                 old_deletes.append("jacket_file_hash")

@@ -1,7 +1,7 @@
 # WARNING: THIS ISN'T IN requirements.txt
 import requests, json
 
-url = "http://localhost:39000/api/charts/84adfd40c9504f4ca69347978f870023/edit/"
+url = "http://127.0.0.1:39000/api/charts/84adfd40c9504f4ca69347978f870023/edit/"
 
 """
 class ChartEditData(BaseModel):

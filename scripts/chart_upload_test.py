@@ -1,7 +1,7 @@
 # WARNING: THIS ISN'T IN requirements.txt
 import requests, json
 
-url = "http://localhost:39000/api/charts/upload/"
+url = "http://127.0.0.1:39000/api/charts/upload/"
 
 chart_data = {
     "rating": 10,

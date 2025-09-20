@@ -131,7 +131,7 @@ async def main(
     s3_uploads = []
     chart_id = str(uuid.uuid4()).replace("-", "")
 
-    jacket_bytes = await get_and_check_file(jacket_image, "image/png")
+    jacket_bytes = await get_and_check_file(jacket_image, "image")
     v1, v3, jacket_bytes = await app.run_blocking(
         generate_backgrounds_resize_jacket, jacket_bytes
     )
