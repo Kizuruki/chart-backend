@@ -85,15 +85,16 @@ def generate_get_oauth_query(
 
 
 def generate_create_account_query(
-    sonolus_id: str, sonolus_handle: int
+    sonolus_id: str, sonolus_handle: int, sonolus_username: str
 ) -> ExecutableQuery:
     return ExecutableQuery(
         """
-            INSERT INTO accounts (sonolus_id, sonolus_handle)
-            VALUES ($1, $2);
+            INSERT INTO accounts (sonolus_id, sonolus_handle, sonolus_username)
+            VALUES ($1, $2, $3);
         """,
         sonolus_id,
         sonolus_handle,
+        sonolus_username,
     )
 
 
@@ -101,6 +102,7 @@ def create_account_if_not_exists_and_new_session(
     session_key: str,
     sonolus_id: str,
     sonolus_handle: int,
+    sonolus_username: str,
     session_type: str,
     expiry_ms: Optional[int] = 30 * 60 * 1000,
 ) -> SelectQuery[SessionData]:
@@ -116,13 +118,15 @@ def create_account_if_not_exists_and_new_session(
         SessionData,
         f"""
             WITH account_creation AS (
-                INSERT INTO accounts (sonolus_id, sonolus_handle, sonolus_sessions)
+                INSERT INTO accounts (sonolus_id, sonolus_handle, sonolus_username, sonolus_sessions)
                 VALUES (
                     $1,
                     $2,
+                    $3,
                     jsonb_build_object('game', '{{}}'::jsonb, 'external', '{{}}'::jsonb)
                 )
-                ON CONFLICT (sonolus_id) DO NOTHING
+                ON CONFLICT (sonolus_id) DO UPDATE
+                SET sonolus_username = EXCLUDED.sonolus_username
             ),
             session_data AS (
                 SELECT sonolus_id, sonolus_sessions
@@ -154,19 +158,20 @@ def create_account_if_not_exists_and_new_session(
             UPDATE accounts a
             SET sonolus_sessions = jsonb_set(
                 a.sonolus_sessions,
-                array[$3::text, s.slot],
+                array[$4::text, s.slot],
                 jsonb_build_object(
-                    'session_key', $4::text,
-                    'expires', $5::bigint
+                    'session_key', $5::text,
+                    'expires', $6::bigint
                 ),
                 true
             )
             FROM slot_to_use s
             WHERE a.sonolus_id = s.sonolus_id
-            RETURNING $4 AS session_key, $5 AS expires;
+            RETURNING $5 AS session_key, $6 AS expires;
         """,
         sonolus_id,
         sonolus_handle,
+        sonolus_username,
         session_type,
         session_key,
         str(expiry_time),

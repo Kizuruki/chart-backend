@@ -42,7 +42,7 @@ async def main(request: Request, data: ExternalServiceUserProfileWithType):
     ).hexdigest()
     session_key = f"{encoded_key}.{signature}"
     query = accounts.create_account_if_not_exists_and_new_session(
-        session_key, data.id, int(data.handle), data.type
+        session_key, data.id, int(data.handle), data.name, data.type
     )
     query2 = external.update_session_key(id_key=data.id_key, session_key=session_key)
 

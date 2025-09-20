@@ -110,7 +110,16 @@ async def main(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Chart not found."
             )
-    data = [row.model_dump() for row in result]
+    data = [
+        {
+            **row.model_dump(),
+            "created_at": int(row.created_at.timestamp() * 1000),
+            "deleted_at": (
+                int(row.deleted_at.timestamp() * 1000) if row.deleted_at else None
+            ),
+        }
+        for row in result
+    ]
     for comment in data:
         if comment["deleted_at"]:
             comment["content"] = (

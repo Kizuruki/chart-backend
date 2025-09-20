@@ -41,7 +41,7 @@ async def main(request: Request, data: ServiceUserProfileWithType):
     ).hexdigest()
     session_key = f"{encoded_key}.{signature}"
     query = accounts.create_account_if_not_exists_and_new_session(
-        session_key, data.id, int(data.handle), data.type
+        session_key, data.id, int(data.handle), data.name, data.type
     )
 
     async with app.db_acquire() as conn:

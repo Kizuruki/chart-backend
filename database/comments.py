@@ -5,7 +5,7 @@ from helpers.models import Comment, CommentID, Count
 
 
 def create_comment(
-    sonolus_id: str, chart_id: str, content: str
+    sonolus_id: str, commenter_username: str, chart_id: str, content: str
 ) -> SelectQuery[CommentID]:
     return SelectQuery(
         CommentID,

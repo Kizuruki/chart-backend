@@ -46,6 +46,7 @@ END $$;""",
         """CREATE TABLE IF NOT EXISTS accounts (
     sonolus_id TEXT PRIMARY KEY,
     sonolus_handle BIGINT NOT NULL,
+    sonolus_username TEXT NOT NULL,
     discord_id BIGINT,
     patreon_id TEXT,
     chart_upload_cooldown TIMESTAMP,
