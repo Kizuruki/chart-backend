@@ -1,4 +1,4 @@
-import io, asyncio
+import io, asyncio, re
 
 from fastapi import APIRouter, Request, HTTPException, status, UploadFile, Form
 
@@ -339,7 +339,7 @@ async def main(
             await asyncio.gather(*tasks)
     query = charts.update_metadata(
         chart_id=id,
-        chart_author=data.author,
+        chart_author=re.sub(r"#\d+$", "", data.author),
         rating=data.rating,
         title=data.title,
         artists=data.artists,

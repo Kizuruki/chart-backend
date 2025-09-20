@@ -368,7 +368,7 @@ def update_metadata(
     if rating is not None:
         add_field("rating", rating)
     if chart_author is not None:
-        add_field("author", chart_author)
+        add_field("chart_author", chart_author)
     if description is not None:
         add_field("description", description)
     elif update_none_description:
