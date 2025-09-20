@@ -101,10 +101,6 @@ END $$;""",
     chart_id TEXT REFERENCES charts(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );""",
-        """CREATE OR REPLACE FUNCTION decayed_like_score(created_at TIMESTAMP, halflife INTERVAL)
-RETURNS DOUBLE PRECISION AS $$
-    SELECT exp(-EXTRACT(EPOCH FROM (NOW() - created_at)) / EXTRACT(EPOCH FROM halflife));
-$$ LANGUAGE SQL IMMUTABLE;""",
         """CREATE OR REPLACE FUNCTION update_like_count()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -112,38 +108,47 @@ DECLARE
     tnow DOUBLE PRECISION := EXTRACT(EPOCH FROM NOW());
     s DOUBLE PRECISION;
 BEGIN
-    IF TG_OP = 'INSERT' THEN
-        UPDATE charts
-        SET like_count = like_count + 1
-        WHERE id = NEW.chart_id;
+    IF EXISTS (SELECT 1 FROM charts WHERE id = COALESCE(NEW.chart_id, OLD.chart_id)) THEN
 
-        SELECT COALESCE(
-            LN(
-                1 + EXP(a * (EXTRACT(EPOCH FROM NEW.created_at) - tnow)) /
-                    EXP(COALESCE(c.log_like_score, 0))
-            ),
-            a * (EXTRACT(EPOCH FROM NEW.created_at) - tnow)
-        )
-        INTO s
-        FROM charts c
-        WHERE c.id = NEW.chart_id;
+        IF TG_OP = 'INSERT' THEN
+            -- increment like_count
+            UPDATE charts
+            SET like_count = like_count + 1
+            WHERE id = NEW.chart_id;
 
-        UPDATE charts
-        SET log_like_score = COALESCE(log_like_score, 0) + s
-        WHERE id = NEW.chart_id;
+            -- update log_like_score
+            SELECT COALESCE(
+                LN(
+                    1 + EXP(a * (EXTRACT(EPOCH FROM NEW.created_at) - tnow)) /
+                        EXP(COALESCE(c.log_like_score, 0))
+                ),
+                a * (EXTRACT(EPOCH FROM NEW.created_at) - tnow)
+            )
+            INTO s
+            FROM charts c
+            WHERE c.id = NEW.chart_id;
 
-    ELSIF TG_OP = 'DELETE' THEN
-        UPDATE charts
-        SET like_count = like_count - 1
-        WHERE id = OLD.chart_id;
+            UPDATE charts
+            SET log_like_score = COALESCE(log_like_score, 0) + s
+            WHERE id = NEW.chart_id;
 
-        UPDATE charts c
-        SET log_like_score = COALESCE((
-            SELECT LN(SUM(EXP(a * (EXTRACT(EPOCH FROM cl.created_at) - tnow))))
-            FROM chart_likes cl
-            WHERE cl.chart_id = OLD.chart_id
-        ), 0)
-        WHERE c.id = OLD.chart_id;
+        ELSIF TG_OP = 'DELETE' THEN
+            -- decrement like_count
+            UPDATE charts
+            SET like_count = like_count - 1
+            WHERE id = OLD.chart_id;
+
+            -- recalc log_like_score from remaining likes
+            UPDATE charts c
+            SET log_like_score = COALESCE((
+                SELECT LN(SUM(EXP(a * (EXTRACT(EPOCH FROM cl.created_at) - tnow))))
+                FROM chart_likes cl
+                WHERE cl.chart_id = OLD.chart_id
+            ), 0)
+            WHERE c.id = OLD.chart_id;
+
+        END IF;
+
     END IF;
 
     RETURN NULL;
