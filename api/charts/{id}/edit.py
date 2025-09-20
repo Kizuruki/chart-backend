@@ -65,13 +65,17 @@ async def main(
         raise HTTPException(
             status=status.HTTP_400_BAD_REQUEST, detail="Length limits exceeded"
         )
-
+    user = await session.user()
     query = charts.get_chart_by_id(id)
     async with app.db_acquire() as conn:
         result = await conn.fetchrow(query)
         if not result:
             raise HTTPException(status_code=404, detail="Chart not found.")
         old_chart_data = result
+    if old_chart_data.author != user.sonolus_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="bro this aint your chart"
+        )
 
     s3_uploads = []
     old_deletes = []
@@ -350,7 +354,6 @@ async def main(
     )
 
     async with app.db_acquire() as conn:
-        res1 = await conn.execute(query)
-        res2 = await conn.execute(query2)
-        print(res1, res2)
+        await conn.execute(query)
+        await conn.execute(query2)
     return {"result": "success"}

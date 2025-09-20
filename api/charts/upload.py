@@ -96,7 +96,7 @@ async def main(
         if not in_guild:
             return JSONResponse(content={}, status_code=403)
 
-    cooldown = user["chart_upload_cooldown"]
+    cooldown = user.chart_upload_cooldown
     if cooldown:
         now = datetime.now()
         if now < cooldown:
