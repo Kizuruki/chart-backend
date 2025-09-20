@@ -347,8 +347,14 @@ async def main(
         title=data.title,
         artists=data.artists,
         tags=data.tags or None,
-        description=data.description if data.description.strip() != "" else None,
-        update_none_description=False if data.description.strip() != "" else True,
+        description=(
+            data.description
+            if (data.description and data.description.strip() != "")
+            else None
+        ),
+        update_none_description=(
+            False if (data.description and data.description.strip() != "") else True
+        ),
     )
     query2 = charts.update_file_hash(
         chart_id=id,
