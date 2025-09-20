@@ -188,6 +188,7 @@ class CommentID(BaseModel):
 class Comment(BaseModel):
     id: int
     commenter: str
+    username: str
     content: str
     created_at: datetime
     deleted_at: Optional[datetime] = None

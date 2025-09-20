@@ -62,15 +62,23 @@ def get_comments(
     Use count_query to calculate total pages.
     """
     order_clause = (
-        "ORDER BY created_at DESC" if sort_desc else "ORDER BY created_at ASC"
+        "ORDER BY c.created_at DESC" if sort_desc else "ORDER BY c.created_at ASC"
     )
     offset = page * limit
     comments_query = SelectQuery(
         Comment,
         f"""
-            SELECT id, commenter, content, created_at, deleted_at, chart_id
-            FROM comments
-            WHERE chart_id = $1{' AND deleted_at IS NULL' if hide_deleted else ''}
+            SELECT 
+                c.id, 
+                c.commenter, 
+                a.sonolus_username AS username,
+                c.content, 
+                c.created_at, 
+                c.deleted_at, 
+                c.chart_id
+            FROM comments c
+            JOIN accounts a ON c.commenter = a.sonolus_id
+            WHERE c.chart_id = $1{' AND c.deleted_at IS NULL' if hide_deleted else ''}
             {order_clause}
             LIMIT $2 OFFSET $3;
         """,
@@ -82,8 +90,8 @@ def get_comments(
         Count,
         f"""
             SELECT COUNT(*) AS total_count
-            FROM comments
-            WHERE chart_id = $1{' AND deleted_at IS NULL' if hide_deleted else ''};
+            FROM comments c
+            WHERE c.chart_id = $1{' AND c.deleted_at IS NULL' if hide_deleted else ''};
         """,
         chart_id,
     )
@@ -94,18 +102,26 @@ def get_comments_by_account(
     sonolus_id: str, limit: int = 3, page: int = 0, sort_desc: bool = False
 ) -> SelectQuery[Comment]:
     """
-    sort_desc: setting to True will put NEWER comments on top instead of OLDER comments
+    Returns comments by a specific account, including username.
     """
     order_clause = (
-        "ORDER BY created_at DESC" if sort_desc else "ORDER BY created_at ASC"
+        "ORDER BY c.created_at DESC" if sort_desc else "ORDER BY c.created_at ASC"
     )
     offset = page * limit
     return SelectQuery(
         Comment,
         f"""
-            SELECT id, commenter, content, created_at, deleted_at, chart_id
-            FROM comments
-            WHERE commenter = $1 AND deleted_at IS NULL
+            SELECT 
+                c.id, 
+                c.commenter,
+                a.sonolus_username AS username,
+                c.content, 
+                c.created_at, 
+                c.deleted_at, 
+                c.chart_id
+            FROM comments c
+            JOIN accounts a ON c.commenter = a.sonolus_id
+            WHERE c.commenter = $1 AND c.deleted_at IS NULL
             {order_clause}
             LIMIT $2 OFFSET $3;
         """,
