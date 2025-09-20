@@ -49,7 +49,7 @@ async def main(
     return {"result": "success"}
 
 
-@router.delete("/{comment_id}")
+@router.delete("/{comment_id}/")
 async def main(
     request: Request,
     id: str,
