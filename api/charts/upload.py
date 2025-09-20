@@ -188,6 +188,7 @@ async def main(
             # assume gzipped already
             # XXX: check
             return chart_bytes
+        converted.seek(0)
         return converted.read()
 
     chart_bytes = await app.run_blocking(convert)
