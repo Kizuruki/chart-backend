@@ -117,7 +117,7 @@ def create_account_if_not_exists_and_new_session(
     return SelectQuery(
         SessionData,
         f"""
-            WITH account_creation AS (
+            WITH upserted AS (
                 INSERT INTO accounts (sonolus_id, sonolus_handle, sonolus_username, sonolus_sessions)
                 VALUES (
                     $1,
@@ -126,12 +126,9 @@ def create_account_if_not_exists_and_new_session(
                     jsonb_build_object('game', '{{}}'::jsonb, 'external', '{{}}'::jsonb)
                 )
                 ON CONFLICT (sonolus_id) DO UPDATE
-                SET sonolus_username = EXCLUDED.sonolus_username
-            ),
-            session_data AS (
-                SELECT sonolus_id, sonolus_sessions
-                FROM accounts
-                WHERE sonolus_id = $1
+                SET sonolus_handle = EXCLUDED.sonolus_handle,
+                    sonolus_username = EXCLUDED.sonolus_username
+                RETURNING sonolus_id, sonolus_sessions
             ),
             slot_to_use AS (
                 SELECT
@@ -153,7 +150,7 @@ def create_account_if_not_exists_and_new_session(
                             LIMIT 1
                         )
                     END AS slot
-                FROM session_data
+                FROM upserted
             )
             UPDATE accounts a
             SET sonolus_sessions = jsonb_set(
