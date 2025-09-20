@@ -266,7 +266,7 @@ async def main(
             background_v3_file_hash=v3_hash,
             tags=data.tags or [],
             description=data.description,
-            preview_file_hash=preview_hash if preview_hash else None,
+            preview_file_hash=preview_hash if preview_file else None,
             background_file_hash=background_hash if background_image else None,
         )
     )
