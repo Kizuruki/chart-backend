@@ -1,3 +1,5 @@
+from typing import Optional
+
 from database.query import ExecutableQuery, SelectQuery
 from helpers.models import Comment, CommentID
 
@@ -23,12 +25,26 @@ def create_comment(
     )
 
 
-def delete_comment(comment_id: int) -> ExecutableQuery:
-    return ExecutableQuery(
+def delete_comment(comment_id: int, sonolus_id: Optional[str] = None) -> SelectQuery:
+    if sonolus_id:
+        return SelectQuery(
+            CommentID,
+            """
+                UPDATE comments
+                SET deleted_at = CURRENT_TIMESTAMP
+                WHERE id = $1 AND commenter = $2
+                RETURNING id;
+            """,
+            comment_id,
+            sonolus_id,
+        )
+    return SelectQuery(
+        CommentID,
         """
             UPDATE comments
             SET deleted_at = CURRENT_TIMESTAMP
-            WHERE id = $1;
+            WHERE id = $1
+            RETURNING id;
         """,
         comment_id,
     )

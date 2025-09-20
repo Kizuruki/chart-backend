@@ -41,6 +41,37 @@ async def main(
     return {"result": "success"}
 
 
+@router.delete("/{comment_id}")
+async def main(
+    request: Request,
+    id: str,
+    comment_id: int,
+    session: Session = get_session(enforce_auth=True, allow_banned_users=False),
+):
+    # exposed to public
+    # authentication needed
+
+    app: ChartFastAPI = request.app
+
+    if len(id) != 32 or not id.isalnum():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chart ID."
+        )
+    user = await session.user()
+    if user.mod:
+        query = comments.delete_comment(comment_id)
+    else:
+        query = comments.delete_comment(comment_id, user.sonolus_id)
+    async with app.db_acquire() as conn:
+        result = await conn.fetchrow(query)
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Chart or comment not found.",
+            )
+    return {"result": "success"}
+
+
 @router.get("/")
 async def main(
     request: Request,
