@@ -86,7 +86,8 @@ def get_chart_list(
             c.like_count,
             c.created_at, 
             c.updated_at,
-            c.chart_author || '#' || a.sonolus_handle AS author_full
+            c.chart_author || '#' || a.sonolus_handle AS author_full,
+            c.chart_author AS chart_design
     """
 
     if sonolus_id:
@@ -228,7 +229,8 @@ def get_random_charts(
                 c.like_count,
                 c.created_at,
                 c.updated_at,
-                c.chart_author || '#' || a.sonolus_handle AS author_full
+                c.chart_author || '#' || a.sonolus_handle AS author_full,
+                c.chart_author AS chart_design
             FROM charts c
             JOIN accounts a ON c.author = a.sonolus_id
             WHERE c.status = 'PUBLIC'
@@ -258,7 +260,8 @@ def get_random_charts(
                 c.created_at,
                 c.updated_at,
                 c.chart_author || '#' || a.sonolus_handle AS author_full,
-                CASE WHEN cl.sonolus_id IS NULL THEN FALSE ELSE TRUE END AS liked
+                CASE WHEN cl.sonolus_id IS NULL THEN FALSE ELSE TRUE END AS liked,
+                c.chart_author AS chart_design
             FROM charts c
             JOIN accounts a ON c.author = a.sonolus_id
             LEFT JOIN chart_likes cl 
@@ -285,7 +288,8 @@ def get_chart_by_id(
             SELECT 
                 c.*,
                 c.chart_author || '#' || a.sonolus_handle AS author_full,
-                (cl.sonolus_id IS NOT NULL) AS liked
+                (cl.sonolus_id IS NOT NULL) AS liked,
+                c.chart_author AS chart_design
             FROM charts c
             JOIN accounts a ON c.author = a.sonolus_id
             LEFT JOIN chart_likes cl 
@@ -297,7 +301,8 @@ def get_chart_by_id(
         query = """
             SELECT 
                 c.*,
-                c.chart_author || '#' || a.sonolus_handle AS author_full
+                c.chart_author || '#' || a.sonolus_handle AS author_full,
+                c.chart_author AS chart_design
             FROM charts c
             JOIN accounts a ON c.author = a.sonolus_id
             WHERE c.id = $1;

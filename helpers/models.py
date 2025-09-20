@@ -162,6 +162,7 @@ class ChartDBResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     author_full: str
+    chart_design: str  # author_full without the handle
 
 
 class ChartDBResponseLiked(ChartDBResponse):
