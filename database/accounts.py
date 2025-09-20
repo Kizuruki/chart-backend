@@ -105,8 +105,13 @@ def create_account_if_not_exists_and_new_session(
     sonolus_username: str,
     session_type: str,
     expiry_ms: Optional[int] = 30 * 60 * 1000,
-) -> SelectQuery[SessionData]:
-    # TODO move sessions to redis
+) -> tuple[ExecutableQuery, SelectQuery[SessionData]]:
+    """
+    Create or update an account, then create a new session slot.
+    Returns two SelectQuery objects:
+      1. Upsert account (always updates username/handle)
+      2. Update session slot and return session_key & expires
+    """
     if session_type not in ("game", "external"):
         raise ValueError("invalid session type. must be 'game' or 'external'.")
 
@@ -114,65 +119,65 @@ def create_account_if_not_exists_and_new_session(
         (datetime.now() + timedelta(milliseconds=expiry_ms)).timestamp() * 1000
     )
 
-    return SelectQuery(
-        SessionData,
+    upsert_query = ExecutableQuery(
         f"""
-            WITH upserted AS (
-                INSERT INTO accounts (sonolus_id, sonolus_handle, sonolus_username, sonolus_sessions)
-                VALUES (
-                    $1,
-                    $2,
-                    $3,
-                    jsonb_build_object('game', '{{}}'::jsonb, 'external', '{{}}'::jsonb)
-                )
-                ON CONFLICT (sonolus_id) DO UPDATE
-                SET sonolus_handle = EXCLUDED.sonolus_handle,
-                    sonolus_username = EXCLUDED.sonolus_username
-                RETURNING sonolus_id, sonolus_sessions
-            ),
-            slot_to_use AS (
-                SELECT
-                    sonolus_id,
-                    CASE
-                        WHEN sonolus_sessions->'{session_type}'->'1' IS NULL OR
-                            (sonolus_sessions->'{session_type}'->'1'->>'expires')::bigint < extract(epoch from now()) * 1000
-                        THEN '1'
-                        WHEN sonolus_sessions->'{session_type}'->'2' IS NULL OR
-                            (sonolus_sessions->'{session_type}'->'2'->>'expires')::bigint < extract(epoch from now()) * 1000
-                        THEN '2'
-                        WHEN sonolus_sessions->'{session_type}'->'3' IS NULL OR
-                            (sonolus_sessions->'{session_type}'->'3'->>'expires')::bigint < extract(epoch from now()) * 1000
-                        THEN '3'
-                        ELSE (
-                            SELECT key
-                            FROM jsonb_each(sonolus_sessions->'{session_type}') AS t(key, val)
-                            ORDER BY (val->>'expires')::bigint ASC
-                            LIMIT 1
-                        )
-                    END AS slot
-                FROM upserted
-            )
-            UPDATE accounts a
-            SET sonolus_sessions = jsonb_set(
-                a.sonolus_sessions,
-                array[$4::text, s.slot],
-                jsonb_build_object(
-                    'session_key', $5::text,
-                    'expires', $6::bigint
-                ),
-                true
-            )
-            FROM slot_to_use s
-            WHERE a.sonolus_id = s.sonolus_id
-            RETURNING $5 AS session_key, $6 AS expires;
+        INSERT INTO accounts (sonolus_id, sonolus_handle, sonolus_username, sonolus_sessions)
+        VALUES ($1, $2, $3, jsonb_build_object('game','{{}}'::jsonb,'external','{{}}'::jsonb))
+        ON CONFLICT (sonolus_id) DO UPDATE
+        SET sonolus_username = EXCLUDED.sonolus_username;
         """,
         sonolus_id,
         sonolus_handle,
         sonolus_username,
+    )
+
+    session_query = SelectQuery(
+        SessionData,
+        f"""
+        WITH slot_to_use AS (
+            SELECT
+                CASE
+                    WHEN jsonb_extract_path(sonolus_sessions, $2, '1') IS NULL OR
+                        (jsonb_extract_path(sonolus_sessions, $2, '1')->>'expires')::bigint < extract(epoch from now())*1000
+                    THEN '1'
+                    WHEN jsonb_extract_path(sonolus_sessions, $2, '2') IS NULL OR
+                        (jsonb_extract_path(sonolus_sessions, $2, '2')->>'expires')::bigint < extract(epoch from now())*1000
+                    THEN '2'
+                    WHEN jsonb_extract_path(sonolus_sessions, $2, '3') IS NULL OR
+                        (jsonb_extract_path(sonolus_sessions, $2, '3')->>'expires')::bigint < extract(epoch from now())*1000
+                    THEN '3'
+                    ELSE (
+                        SELECT key
+                        FROM jsonb_each(jsonb_extract_path(sonolus_sessions, $2)) AS t(key,val)
+                        ORDER BY (val->>'expires')::bigint ASC
+                        LIMIT 1
+                    )
+                END AS slot
+            FROM accounts
+            WHERE sonolus_id=$1
+        )
+        UPDATE accounts a
+        SET sonolus_sessions = jsonb_set(
+            a.sonolus_sessions,
+            array[$2, s.slot],
+            jsonb_build_object(
+                'session_key', $3::text,
+                'expires', $4::bigint
+            ),
+            true
+        )
+        FROM slot_to_use s
+        WHERE a.sonolus_id=$1
+        RETURNING 
+            (jsonb_extract_path(a.sonolus_sessions, $2, s.slot)->>'session_key')::text AS session_key,
+            (jsonb_extract_path(a.sonolus_sessions, $2, s.slot)->>'expires')::bigint AS expires;
+        """,
+        sonolus_id,
         session_type,
         session_key,
-        str(expiry_time),
+        expiry_time,
     )
+    return upsert_query, session_query
 
 
 def get_account_from_session(

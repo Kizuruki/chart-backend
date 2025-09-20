@@ -40,22 +40,15 @@ async def main(request: Request, data: ServiceUserProfileWithType):
         app.token_secret_key.encode(), encoded_key.encode(), hashlib.sha256
     ).hexdigest()
     session_key = f"{encoded_key}.{signature}"
-    query = accounts.create_account_if_not_exists_and_new_session(
+    account_query, query = accounts.create_account_if_not_exists_and_new_session(
         session_key, data.id, int(data.handle), data.name, data.type
     )
 
     async with app.db_acquire() as conn:
-        result = await conn.fetchrow(query)
-
-        if result:
-            return {"session": result.session_key, "expiry": int(result.expires)}
-        # account was created
-        # run it again
-
+        await conn.execute(account_query)
         result = await conn.fetchrow(query)
         if result:
             return {"session": result.session_key, "expiry": int(result.expires)}
-
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error while processing session result.",

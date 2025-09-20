@@ -18,7 +18,7 @@ async def main(
         enforce_auth=True, enforce_type="external", allow_banned_users=False
     ),
 ):
-    return_keys = ["sonolus_id", "sonolus_handle", "created_at"]
+    return_keys = ["sonolus_id", "sonolus_handle", "sonolus_username", "created_at"]
     return_val = {}
     for key, value in (await session.user()).model_dump().items():
         if key in return_keys:
