@@ -3,11 +3,12 @@ import yaml
 
 id = ""
 
-url = "https://sono_api.untitledcharts.com/accounts/{id}/"
+url = "http://127.0.0.1:39000/api/accounts/{id}/"
 
 with open("config.yml", "r") as file:
     config = yaml.safe_load(file)
 
 headers = {config["server"]["auth-header"]: config["server"]["auth"]}
 
-requests.delete(url, headers=headers)
+resp = requests.delete(url, headers=headers)
+print(resp.status_code, resp.content)
