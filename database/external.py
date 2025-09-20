@@ -1,12 +1,12 @@
 from typing import Tuple
 
 from database.query import ExecutableQuery, SelectQuery
-from helpers.models import ExternalLogin, DBID
+from helpers.models import ExternalLogin, ExternalLoginKey
 
 
-def create_external_login(id_key: str) -> SelectQuery[DBID]:
+def create_external_login(id_key: str) -> SelectQuery[ExternalLoginKey]:
     return SelectQuery(
-        DBID,
+        ExternalLoginKey,
         """
             INSERT INTO external_login_ids (id_key, expires_at)
             VALUES ($1, CURRENT_TIMESTAMP + INTERVAL '6 minutes')

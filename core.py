@@ -1,14 +1,15 @@
-import asyncio, json, hashlib, base64, hmac
+import asyncio, hashlib, base64, hmac
 from fastapi import FastAPI, Request
 from fastapi import status, HTTPException
 from fastapi.responses import JSONResponse
 from helpers.config_loader import ConfigType
-from helpers.models import SessionKeyData
+from helpers.models import SessionKeyData, ExternalLoginKeyData
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from database import DBConnWrapper
 import aioboto3
 import asyncpg
+from typing import Union
 
 from authlib.integrations.starlette_client import OAuth
 
@@ -70,7 +71,9 @@ class ChartFastAPI(FastAPI):
         async with self.db.acquire() as conn:
             yield DBConnWrapper(conn)
 
-    def decode_key(self, session_key: str) -> SessionKeyData:
+    def decode_key(
+        self, session_key: str
+    ) -> Union[SessionKeyData, ExternalLoginKeyData]:
         try:
             encoded_data, signature = session_key.rsplit(".", 1)
             recalculated_signature = hmac.new(
@@ -78,11 +81,14 @@ class ChartFastAPI(FastAPI):
             ).hexdigest()
             if recalculated_signature == signature:
                 decoded_data = base64.urlsafe_b64decode(encoded_data).decode()
-                return SessionKeyData.model_validate_json(decoded_data)
+                try:
+                    return SessionKeyData.model_validate_json(decoded_data)
+                except:
+                    return ExternalLoginKeyData.model_validate_json(decoded_data)
         except Exception:
             pass
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Invalid session token."
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session token."
         )
 
     async def run_blocking(self, func, *args, **kwargs):

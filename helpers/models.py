@@ -185,10 +185,18 @@ class Comment(BaseModel):
     chart_id: str
 
 
-class ExternalLogin(SessionData):
-    session_key: str
+class ExternalLogin(BaseModel):
+    session_key: Optional[str] = None
     expires_at: datetime
     id_key: str
+
+
+class ExternalLoginKey(BaseModel):
+    id_key: str
+
+
+class ExternalLoginKeyData(BaseModel):
+    id: str
 
 
 class DBID(BaseModel):
