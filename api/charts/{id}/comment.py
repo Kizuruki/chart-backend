@@ -1,4 +1,8 @@
-from fastapi import APIRouter, Request, HTTPException, status
+import math
+
+from fastapi import APIRouter, Request, HTTPException, status, Query
+from typing import Optional
+
 from core import ChartFastAPI
 
 from database import comments
@@ -80,6 +84,7 @@ async def main(
 async def main(
     request: Request,
     id: str,
+    page: Optional[int] = Query(0, ge=0),
     session: Session = get_session(
         enforce_auth=False, enforce_type="game", allow_banned_users=False
     ),
@@ -90,8 +95,16 @@ async def main(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chart ID."
         )
-    query = comments.get_comments(id)
+    query, count_query = comments.get_comments(id, page=page)
+
     async with app.db_acquire() as conn:
+        count_result = await conn.fetchrow(count_query)
+        total_count = count_result.total_count if count_result else 0
+        page_count = math.ceil(total_count / 10) if total_count > 0 else 0
+
+        if page_count == 0 or page >= page_count:
+            return {"data": [], "pageCount": page_count}
+
         result = await conn.fetch(query)
         if not result:
             raise HTTPException(
@@ -102,7 +115,7 @@ async def main(
         if comment["deleted_at"]:
             comment["content"] = (
                 "[DELETED]"
-                if (session.auth and not (await session.user()).mod)
+                if (session and session.auth and not (await session.user()).mod)
                 else f"[DELETED]\nMod View:\n{'-'*10}\n{comment['content']}"
             )
-    return {"data": data}
+    return {"data": data, "pageCount": page_count}

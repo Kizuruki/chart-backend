@@ -1,7 +1,7 @@
-from typing import Optional
+from typing import Optional, Tuple
 
-from database.query import ExecutableQuery, SelectQuery
-from helpers.models import Comment, CommentID
+from database.query import SelectQuery
+from helpers.models import Comment, CommentID, Count
 
 
 def create_comment(
@@ -51,21 +51,26 @@ def delete_comment(comment_id: int, sonolus_id: Optional[str] = None) -> SelectQ
 
 
 def get_comments(
-    chart_id: str, limit: int = 10, page: int = 0, sort_desc: bool = True
-) -> SelectQuery[Comment]:
+    chart_id: str,
+    limit: int = 10,
+    page: int = 0,
+    sort_desc: bool = True,
+    hide_deleted: bool = False,
+) -> Tuple[SelectQuery[Comment], SelectQuery[Count]]:
     """
-    sort_desc: setting to True will put NEWER comments on top instead of OLDER comments
+    Returns (comments_query, count_query).
+    Use count_query to calculate total pages.
     """
     order_clause = (
         "ORDER BY created_at DESC" if sort_desc else "ORDER BY created_at ASC"
     )
     offset = page * limit
-    return SelectQuery(
+    comments_query = SelectQuery(
         Comment,
         f"""
             SELECT id, commenter, content, created_at, deleted_at, chart_id
             FROM comments
-            WHERE chart_id = $1 AND deleted_at IS NULL
+            WHERE chart_id = $1{' AND deleted_at IS NULL' if hide_deleted else ''}
             {order_clause}
             LIMIT $2 OFFSET $3;
         """,
@@ -73,6 +78,16 @@ def get_comments(
         limit,
         offset,
     )
+    count_query = SelectQuery(
+        Count,
+        f"""
+            SELECT COUNT(*) AS total_count
+            FROM comments
+            WHERE chart_id = $1{' AND deleted_at IS NULL' if hide_deleted else ''};
+        """,
+        chart_id,
+    )
+    return comments_query, count_query
 
 
 def get_comments_by_account(
