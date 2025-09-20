@@ -86,7 +86,7 @@ END $$;""",
     PRIMARY KEY (chart_id, sonolus_id)
 );""",
         """CREATE TABLE IF NOT EXISTS comments (
-    id TEXT PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     commenter TEXT REFERENCES accounts(sonolus_id) ON DELETE CASCADE,
     content TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -94,7 +94,7 @@ END $$;""",
     chart_id TEXT REFERENCES charts(id) ON DELETE CASCADE
 );""",
         """CREATE TABLE IF NOT EXISTS leaderboards (
-    id TEXT PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     submitter TEXT REFERENCES accounts(sonolus_id) ON DELETE CASCADE,
     replay_hash TEXT NOT NULL,
     chart_id TEXT REFERENCES charts(id) ON DELETE CASCADE,

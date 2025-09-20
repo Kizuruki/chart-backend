@@ -26,6 +26,10 @@ class ServerAuthenticateRequest(BaseModel):
     userProfile: ServiceUserProfile
 
 
+class CommentRequest(BaseModel):
+    content: str
+
+
 class Like(BaseModel):
     type: Literal["like", "unlike"]
 
@@ -177,8 +181,12 @@ class ChartByIDLiked(ChartByID):
     liked: bool
 
 
+class CommentID(BaseModel):
+    id: int
+
+
 class Comment(BaseModel):
-    id: str
+    id: int
     commenter: str
     content: str
     created_at: datetime
