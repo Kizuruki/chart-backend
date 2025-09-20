@@ -14,7 +14,9 @@ async def main(
     request: Request,
     id: str,
     data: CommentRequest,
-    session: Session = get_session(enforce_auth=True, allow_banned_users=False),
+    session: Session = get_session(
+        enforce_auth=True, enforce_type="game", allow_banned_users=False
+    ),
 ):
     # exposed to public
     # authentication needed
@@ -46,7 +48,9 @@ async def main(
     request: Request,
     id: str,
     comment_id: int,
-    session: Session = get_session(enforce_auth=True, allow_banned_users=False),
+    session: Session = get_session(
+        enforce_auth=True, enforce_type="game", allow_banned_users=False
+    ),
 ):
     # exposed to public
     # authentication needed
@@ -76,6 +80,9 @@ async def main(
 async def main(
     request: Request,
     id: str,
+    session: Session = get_session(
+        enforce_auth=False, enforce_type="game", allow_banned_users=False
+    ),
 ):
     app: ChartFastAPI = request.app
 
@@ -90,4 +97,12 @@ async def main(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Chart not found."
             )
-    return {"data": [row.model_dump() for row in result]}
+    data = [row.model_dump() for row in result]
+    for comment in data:
+        if comment["deleted_at"]:
+            comment["content"] = (
+                "[DELETED]"
+                if (session.auth and not (await session.user()).mod)
+                else f"[DELETED]\nMod View:\n{'-'*10}\n{comment['content']}"
+            )
+    return {"data": data}
