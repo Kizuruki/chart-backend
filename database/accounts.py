@@ -259,7 +259,7 @@ def set_mod(sonolus_id: str, mod_status: bool) -> ExecutableQuery:
             SET mod = $1, updated_at = CURRENT_TIMESTAMP
             WHERE sonolus_id = $2;
         """,
-        str(mod_status).lower(),
+        mod_status,
         sonolus_id,
     )
 
@@ -271,7 +271,7 @@ def set_banned(sonolus_id: str, banned_status: bool) -> ExecutableQuery:
             SET banned = $1, updated_at = CURRENT_TIMESTAMP
             WHERE sonolus_id = $2;
         """,
-        str(banned_status).lower(),
+        banned_status,
         sonolus_id,
     )
 
