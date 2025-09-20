@@ -98,6 +98,7 @@ class SessionData(BaseModel):
 class Account(BaseModel):
     sonolus_id: str
     sonolus_handle: int
+    sonolus_username: str
     discord_id: Optional[int] = None
     patreon_id: Optional[str] = None
     chart_upload_cooldown: Optional[datetime] = None

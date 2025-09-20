@@ -37,7 +37,9 @@ async def main(
             detail="Comments cannot be larger than 200 characters.",
         )
     user = await session.user()
-    query = comments.create_comment(user.sonolus_id, id, data.content)
+    query = comments.create_comment(
+        user.sonolus_id, user.sonolus_username, id, data.content
+    )
     async with app.db_acquire() as conn:
         result = await conn.fetchrow(query)
         if not result:
