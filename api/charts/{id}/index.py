@@ -40,6 +40,7 @@ async def main(request: Request, id: str, session: Session = get_session()):
                 "data": result.model_dump(),
                 "asset_base_url": app.s3_asset_base_url,
                 "mod": True,
+                "owner": result.author == session.sonolus_id,
             }
 
         if result.status == "PRIVATE" and result.author != session.sonolus_id:
@@ -47,4 +48,8 @@ async def main(request: Request, id: str, session: Session = get_session()):
                 status_code=status.HTTP_404_NOT_FOUND, detail=f"Chart not found."
             )
 
-    return {"data": result.model_dump(), "asset_base_url": app.s3_asset_base_url}
+    return {
+        "data": result.model_dump(),
+        "asset_base_url": app.s3_asset_base_url,
+        "owner": result.author == session.sonolus_id,
+    }

@@ -14,7 +14,7 @@ async def main(
     request: Request,
     id: str,
     session: Session = get_session(
-        enforce_auth=True, enforce_type="external", allow_banned_users=False
+        enforce_auth=True, enforce_type=False, allow_banned_users=False
     ),
 ):
     app: ChartFastAPI = request.app
@@ -40,6 +40,11 @@ async def main(
                 tasks = [obj.delete() for obj in objects]
                 await asyncio.gather(*tasks)
     else:
+        if user.mod:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Chart not found for any user!",
+            )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Chart not found."
         )

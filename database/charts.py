@@ -504,17 +504,32 @@ def remove_like(chart_id: str, sonolus_id: str) -> ExecutableQuery:
 
 
 def update_status(
-    chart_id: str, sonolus_id: str, status: Literal["PUBLIC", "UNLISTED", "PRIVATE"]
+    chart_id: str,
+    status: Literal["PUBLIC", "UNLISTED", "PRIVATE"],
+    sonolus_id: Optional[str] = None,
 ) -> SelectQuery[DBID]:
-    return SelectQuery(
-        DBID,
-        """
-            UPDATE charts
-            SET status = $1, updated_at = CURRENT_TIMESTAMP
-            WHERE id = $2 AND author = $3
-            RETURNING id;
-        """,
-        status,
-        chart_id,
-        sonolus_id,
-    )
+    if sonolus_id:
+        return SelectQuery(
+            DBID,
+            """
+                UPDATE charts
+                SET status = $1, updated_at = CURRENT_TIMESTAMP
+                WHERE id = $2 AND author = $3
+                RETURNING id;
+            """,
+            status,
+            chart_id,
+            sonolus_id,
+        )
+    else:
+        return SelectQuery(
+            DBID,
+            """
+                UPDATE charts
+                SET status = $1, updated_at = CURRENT_TIMESTAMP
+                WHERE id = $2
+                RETURNING id;
+            """,
+            status,
+            chart_id,
+        )
