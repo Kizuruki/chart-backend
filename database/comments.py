@@ -52,6 +52,7 @@ def delete_comment(comment_id: int, sonolus_id: Optional[str] = None) -> SelectQ
 
 def get_comments(
     chart_id: str,
+    sonolus_id: Optional[str] = None,
     limit: int = 10,
     page: int = 0,
     sort_desc: bool = True,
@@ -75,7 +76,8 @@ def get_comments(
                 c.content, 
                 c.created_at, 
                 c.deleted_at, 
-                c.chart_id
+                c.chart_id,
+                COALESCE(c.commenter = $4, FALSE) AS owner
             FROM comments c
             JOIN accounts a ON c.commenter = a.sonolus_id
             WHERE c.chart_id = $1{' AND c.deleted_at IS NULL' if hide_deleted else ''}
@@ -85,6 +87,7 @@ def get_comments(
         chart_id,
         limit,
         offset,
+        sonolus_id,
     )
     count_query = SelectQuery(
         Count,

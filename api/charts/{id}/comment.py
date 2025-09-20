@@ -95,7 +95,12 @@ async def main(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chart ID."
         )
-    query, count_query = comments.get_comments(id, page=page)
+    user = None
+    if session.auth:
+        user = await session.user()
+    query, count_query = comments.get_comments(
+        id, sonolus_id=user.sonolus_id if user else None, page=page
+    )
 
     async with app.db_acquire() as conn:
         count_result = await conn.fetchrow(count_query)
@@ -124,7 +129,10 @@ async def main(
         if comment["deleted_at"]:
             comment["content"] = (
                 "[DELETED]"
-                if (session and session.auth and not (await session.user()).mod)
+                if (user and not user.mod)
                 else f"[DELETED]\nMod View:\n{'-'*10}\n{comment['content']}"
             )
-    return {"data": data, "pageCount": page_count}
+    ret = {"data": data, "pageCount": page_count}
+    if user and user.mod:
+        ret["mod"] = True
+    return ret
