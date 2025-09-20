@@ -234,6 +234,11 @@ async def main(
                     }
                 )
                 old_deletes.append("preview_file_hash")
+        elif data.delete_preview:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Can't delete and include.",
+            )
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -241,10 +246,10 @@ async def main(
             )
     elif data.delete_preview and not data.includes_preview:
         old_deletes.append("preview_file_hash")
-    else:
+    elif data.includes_preview:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Can't delete and include.",
+            detail="File not found.",
         )
     if background_image:
         if background_image.size > MAX_FILE_SIZES["background"]:
@@ -265,6 +270,11 @@ async def main(
                     }
                 )
                 old_deletes.append("background_file_hash")
+        elif data.delete_background:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Can't delete and include.",
+            )
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -272,10 +282,10 @@ async def main(
             )
     elif data.delete_background and not data.includes_background:
         old_deletes.append("background_file_hash")
-    else:
+    elif data.includes_background:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Can't delete and include.",
+            detail="File not found.",
         )
 
     all_hash_keys = {
