@@ -259,16 +259,50 @@ def link_patreon_id(  # Merge into one function with link_discord_id?
     )
 
 
+def set_admin(sonolus_id: str, admin_status: bool) -> ExecutableQuery:
+    if admin_status == False:
+        return ExecutableQuery(
+            """
+                UPDATE accounts
+                SET admin = $1, updated_at = CURRENT_TIMESTAMP
+                WHERE sonolus_id = $2;
+            """,
+            admin_status,
+            sonolus_id,
+        )
+    elif admin_status == True:
+        return ExecutableQuery(
+            """
+                UPDATE accounts
+                SET admin = $1, mod = $1, updated_at = CURRENT_TIMESTAMP
+                WHERE sonolus_id = $2;
+            """,
+            admin_status,
+            sonolus_id,
+        )
+
+
 def set_mod(sonolus_id: str, mod_status: bool) -> ExecutableQuery:
-    return ExecutableQuery(
-        """
-            UPDATE accounts
-            SET mod = $1, updated_at = CURRENT_TIMESTAMP
-            WHERE sonolus_id = $2;
-        """,
-        mod_status,
-        sonolus_id,
-    )
+    if mod_status == True:
+        return ExecutableQuery(
+            """
+                UPDATE accounts
+                SET mod = $1, updated_at = CURRENT_TIMESTAMP
+                WHERE sonolus_id = $2;
+            """,
+            mod_status,
+            sonolus_id,
+        )
+    elif mod_status == False:
+        return ExecutableQuery(
+            """
+                UPDATE accounts
+                SET mod = $1, admin = $1, updated_at = CURRENT_TIMESTAMP
+                WHERE sonolus_id = $2;
+            """,
+            mod_status,
+            sonolus_id,
+        )
 
 
 def set_banned(sonolus_id: str, banned_status: bool) -> ExecutableQuery:

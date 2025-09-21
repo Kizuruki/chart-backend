@@ -110,6 +110,7 @@ class Account(BaseModel):
     created_at: datetime
     updated_at: datetime
     mod: bool = False
+    admin: bool = False
     banned: bool = False
 
     @field_validator("sonolus_sessions", "oauth_details", mode="before")

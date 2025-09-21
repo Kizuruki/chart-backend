@@ -137,4 +137,6 @@ async def main(
     ret = {"data": data, "pageCount": page_count}
     if user and user.mod:
         ret["mod"] = True
+        if user.admin:
+            ret["admin"] = True
     return ret

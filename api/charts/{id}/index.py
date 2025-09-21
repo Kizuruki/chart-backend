@@ -36,12 +36,15 @@ async def main(request: Request, id: str, session: Session = get_session()):
             user = await session.user()
 
         if user and user.mod:
-            return {
+            res = {
                 "data": result.model_dump(),
                 "asset_base_url": app.s3_asset_base_url,
                 "mod": True,
                 "owner": result.author == session.sonolus_id,
             }
+            if user.admin:
+                res["admin"] = True
+            return res
 
         if result.status == "PRIVATE" and result.author != session.sonolus_id:
             raise HTTPException(

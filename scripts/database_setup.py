@@ -56,6 +56,7 @@ END $$;""",
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     mod BOOL DEFAULT false,
+    admin BOOL default false,
     banned BOOL DEFAULT false
 );""",
         """CREATE TABLE IF NOT EXISTS charts (

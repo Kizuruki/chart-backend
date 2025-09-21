@@ -2,9 +2,9 @@ import requests
 import yaml
 
 id = ""
-type = "mod"  # or unmod
+type = "mod"  # or unmod, admin, unadmin
 
-url = f"http://127.0.0.1:39000/api/accounts/{id}/{type}/"
+url = f"http://127.0.0.1:39000/api/accounts/{id}/staff/{type}/"
 
 with open("config.yml", "r") as file:
     config = yaml.safe_load(file)
