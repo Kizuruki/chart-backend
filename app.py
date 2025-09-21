@@ -142,7 +142,7 @@ async def startup_event():
     if len(os.listdir(folder)) == 0:
         print("[WARN] No routes loaded.")
     else:
-        load_routes(folder)
+        load_routes(folder, cleanup=debug)
         print("Routes loaded!")
 
 
