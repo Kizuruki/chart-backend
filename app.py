@@ -56,10 +56,6 @@ async def force_https_redirect(request, call_next):
 
 
 import os
-import importlib
-
-
-import os
 import shutil
 import importlib
 
@@ -89,7 +85,7 @@ def load_routes(folder, cleanup: bool = True):
 
     traverse_directory(folder)
 
-    # Sort: static first, then dynamic. Deeper routes first.
+    # static first, then dynamic. Deeper routes first.
     routes.sort(key=lambda x: (not x[1], x[0]))
 
     for route_name, is_static in routes:
@@ -101,6 +97,7 @@ def load_routes(folder, cleanup: bool = True):
         route_version = route_name.split(".")[0]
         route_name_parts = route_name.split(".")
 
+        # it's the index for the route
         if route_name.endswith(".index"):
             del route_name_parts[-1]
 
