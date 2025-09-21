@@ -15,10 +15,17 @@ router = APIRouter()
 async def main(
     request: Request,
     session: Session = get_session(
-        enforce_auth=True, enforce_type="external", allow_banned_users=False
+        enforce_auth=True, enforce_type=False, allow_banned_users=False
     ),
 ):
-    return_keys = ["sonolus_id", "sonolus_handle", "sonolus_username", "created_at"]
+    return_keys = [
+        "sonolus_id",
+        "sonolus_handle",
+        "sonolus_username",
+        "created_at",
+        "mod",
+        "admin",
+    ]
     return_val = {}
     for key, value in (await session.user()).model_dump().items():
         if key in return_keys:
