@@ -500,6 +500,20 @@ def add_like(chart_id: str, sonolus_id: str) -> ExecutableQuery:
     )
 
 
+def set_staff_pick(chart_id: str, value: bool) -> SelectQuery[DBID]:
+    return SelectQuery(
+        DBID,
+        """
+        UPDATE charts
+        SET staff_pick = $2::bool
+        WHERE id = $1
+        RETURNING id;
+        """,
+        chart_id,
+        value,
+    )
+
+
 def remove_like(chart_id: str, sonolus_id: str) -> ExecutableQuery:
     return ExecutableQuery(
         """

@@ -60,6 +60,10 @@ class ChartUploadData(BaseModel):
     includes_preview: bool = False
 
 
+class ChartStPickData(BaseModel):
+    value: bool
+
+
 class ChartEditData(BaseModel):
     author: Optional[str] = None
     rating: Optional[int] = None
