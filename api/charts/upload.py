@@ -1,6 +1,6 @@
-import uuid, io, asyncio, json, time
+import uuid, io, asyncio, json, time, gzip
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Request, HTTPException, status, UploadFile, Form
 from fastapi.responses import JSONResponse
@@ -163,7 +163,9 @@ async def main(
         }
     )
 
-    valid, sus, usc, leveldata, _ = sonolus_converters.detect((await chart_file.read()))
+    valid, sus, usc, leveldata, compressed, _ = sonolus_converters.detect(
+        (await chart_file.read())
+    )
     await chart_file.seek(0)
     if not valid:
         raise HTTPException(
@@ -185,10 +187,15 @@ async def main(
             )
             sonolus_converters.next_sekai.export(converted, score)
         elif leveldata:
-            # assume gzipped already
-            # XXX: check
+            if not compressed:
+                compressed_data = io.BytesIO()
+                with gzip.GzipFile(
+                    fileobj=compressed_data, mode="wb", filename="LevelData", mtime=0
+                ) as f:
+                    f.write(chart_bytes)
+                compressed_data.seek(0)
+                return compressed_data.getvalue()
             return chart_bytes
-        converted.seek(0)
         return converted.read()
 
     chart_bytes = await app.run_blocking(convert)

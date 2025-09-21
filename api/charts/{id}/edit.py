@@ -1,4 +1,4 @@
-import io, asyncio
+import io, asyncio, gzip
 
 from fastapi import APIRouter, Request, HTTPException, status, UploadFile, Form
 
@@ -87,7 +87,7 @@ async def main(
                 detail="Uploaded files exceed file size limit.",
             )
         if data.includes_chart:
-            valid, sus, usc, leveldata, _ = sonolus_converters.detect(
+            valid, sus, usc, leveldata, compressed, _ = sonolus_converters.detect(
                 (await chart_file.read())
             )
             await chart_file.seek(0)
@@ -112,8 +112,17 @@ async def main(
                     )
                     sonolus_converters.next_sekai.export(converted, score)
                 elif leveldata:
-                    # assume gzipped already
-                    # XXX: check
+                    if not compressed:
+                        compressed_data = io.BytesIO()
+                        with gzip.GzipFile(
+                            fileobj=compressed_data,
+                            mode="wb",
+                            filename="LevelData",
+                            mtime=0,
+                        ) as f:
+                            f.write(chart_bytes)
+                        compressed_data.seek(0)
+                        return compressed_data.getvalue()
                     return chart_bytes
                 return converted.read()
 
