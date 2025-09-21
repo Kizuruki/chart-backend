@@ -44,7 +44,7 @@ async def admin_user(request: Request, id: str):
     if request.headers.get(app.auth_header) != app.auth:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="why?")
 
-    query = accounts.set_mod(id, True)
+    query = accounts.set_admin(id, True)
 
     async with app.db_acquire() as conn:
         await conn.execute(query)
