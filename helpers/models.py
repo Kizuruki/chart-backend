@@ -125,6 +125,7 @@ class Account(BaseModel):
 
 
 class Chart(BaseModel):
+    # THIS IS FOR INCOMING API REQUESTS ONLY!
     id: str
     author: str
     rating: int
@@ -165,6 +166,7 @@ class ChartDBResponse(BaseModel):
     background_file_hash: Optional[str] = None
     status: Literal["UNLISTED", "PRIVATE", "PUBLIC"]
     like_count: int
+    comment_count: int
     created_at: datetime
     updated_at: datetime
     author_full: str
