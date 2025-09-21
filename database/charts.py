@@ -51,12 +51,16 @@ def get_chart_list(
     tags: Optional[List[str]] = None,
     min_likes: Optional[int] = None,
     max_likes: Optional[int] = None,
+    min_comments: Optional[int] = None,
+    max_comments: Optional[int] = None,
     liked_by: Optional[str] = None,
+    commented_by: Optional[str] = None,
+    staff_pick: Optional[bool] = None,
     title_includes: Optional[str] = None,
     description_includes: Optional[str] = None,
     artists_includes: Optional[str] = None,
     sort_by: Literal[
-        "created_at", "rating", "likes", "decaying_likes", "abc"
+        "created_at", "rating", "likes", "comments", "decaying_likes", "abc"
     ] = "created_at",
     sort_order: Literal["desc", "asc"] = "desc",
     sonolus_id: Optional[str] = None,
@@ -65,7 +69,6 @@ def get_chart_list(
 ) -> tuple[
     SelectQuery[Count], SelectQuery[Union[ChartDBResponse, ChartDBResponseLiked]]
 ]:
-    # Inner SELECT (without pagination)
     inner_select = """
         SELECT 
             c.id, 
@@ -74,6 +77,7 @@ def get_chart_list(
             c.description, 
             c.tags,
             c.author,
+            c.staff_pick,
             c.jacket_file_hash, 
             c.music_file_hash, 
             c.chart_file_hash,
@@ -115,6 +119,10 @@ def get_chart_list(
         params.append(status)
         conditions.append(f"c.status = ${len(params)}::chart_status")
 
+    if staff_pick is not None:
+        params.append(staff_pick)
+        conditions.append(f"c.staff_pick = ${len(params)}::BOOL")
+
     if min_rating is not None:
         params.append(min_rating)
         conditions.append(f"c.rating >= ${len(params)}")
@@ -133,9 +141,25 @@ def get_chart_list(
         params.append(max_likes)
         conditions.append(f"c.like_count <= ${len(params)}")
 
+    if min_comments is not None:
+        params.append(min_comments)
+        conditions.append(f"c.comment_count >= ${len(params)}")
+    if max_comments is not None:
+        params.append(max_comments)
+        conditions.append(f"c.comment_count <= ${len(params)}")
+
     if liked_by:
         params.append(liked_by)
         conditions.append(f"clb.sonolus_id = ${len(params)}")
+    if commented_by:
+        params.append(commented_by)
+        inner_select += f"""
+            JOIN (
+                SELECT DISTINCT chart_id
+                FROM comments
+                WHERE commenter = ${len(params)}
+            ) cmt ON c.id = cmt.chart_id
+        """
     if owned_by:
         params.append(owned_by)
         conditions.append(f"c.author = ${len(params)}")
@@ -165,6 +189,7 @@ def get_chart_list(
         "created_at": "created_at",
         "rating": "rating",
         "likes": "like_count",
+        "comments": "comment_count",
         "decaying_likes": "log_like_score",
         "abc": "title",
     }.get(sort_by, "created_at")
@@ -203,77 +228,66 @@ def get_chart_list(
 
 
 def get_random_charts(
-    return_count: int, sonolus_id: Optional[str] = None
+    return_count: int,
+    sonolus_id: Optional[str] = None,
+    staff_pick: Optional[bool] = None,
 ) -> SelectQuery[Union[ChartDBResponse, ChartDBResponseLiked]]:
+
+    base_query = """
+        SELECT 
+            c.id,
+            c.title,
+            c.author,
+            c.artists,
+            c.staff_pick,
+            c.description,
+            c.tags,
+            c.jacket_file_hash,
+            c.music_file_hash,
+            c.chart_file_hash,
+            c.preview_file_hash,
+            c.background_file_hash,
+            c.background_v3_file_hash,
+            c.background_v1_file_hash,
+            c.status,
+            c.rating,
+            c.like_count,
+            c.comment_count,
+            c.created_at,
+            c.updated_at,
+            c.chart_author || '#' || a.sonolus_handle AS author_full,
+            c.chart_author AS chart_design
     """
-    Generate a SELECT query for retrieving a random set of charts.
-    If sonolus_id is provided, return a boolean 'liked' for each chart.
+
+    params: list = [return_count]
+
+    if sonolus_id:
+        base_query += (
+            ", CASE WHEN cl.sonolus_id IS NULL THEN FALSE ELSE TRUE END AS liked"
+        )
+
+    base_query += """
+        FROM charts c
+        JOIN accounts a ON c.author = a.sonolus_id
     """
-    if not sonolus_id:
-        query = """
-            SELECT 
-                c.id,
-                c.title,
-                c.author,
-                c.artists,
-                c.description,
-                c.tags,
-                c.jacket_file_hash,
-                c.music_file_hash,
-                c.chart_file_hash,
-                c.preview_file_hash,
-                c.background_file_hash,
-                c.background_v3_file_hash,
-                c.background_v1_file_hash,
-                c.status,
-                c.rating,
-                c.like_count,
-                c.comment_count,
-                c.created_at,
-                c.updated_at,
-                c.chart_author || '#' || a.sonolus_handle AS author_full,
-                c.chart_author AS chart_design
-            FROM charts c
-            JOIN accounts a ON c.author = a.sonolus_id
-            WHERE c.status = 'PUBLIC'
-            ORDER BY RANDOM()
-            LIMIT $1
+
+    if sonolus_id:
+        params.append(sonolus_id)
+        base_query += f"""
+            LEFT JOIN chart_likes cl ON c.id = cl.chart_id AND cl.sonolus_id = ${len(params)}
         """
-        return SelectQuery(ChartDBResponse, query, return_count)
-    else:
-        query = """
-            SELECT 
-                c.id,
-                c.title,
-                c.author,
-                c.artists,
-                c.description,
-                c.tags,
-                c.jacket_file_hash,
-                c.music_file_hash,
-                c.chart_file_hash,
-                c.preview_file_hash,
-                c.background_file_hash,
-                c.background_v3_file_hash,
-                c.background_v1_file_hash,
-                c.status,
-                c.rating,
-                c.like_count,
-                c.comment_count,
-                c.created_at,
-                c.updated_at,
-                c.chart_author || '#' || a.sonolus_handle AS author_full,
-                CASE WHEN cl.sonolus_id IS NULL THEN FALSE ELSE TRUE END AS liked,
-                c.chart_author AS chart_design
-            FROM charts c
-            JOIN accounts a ON c.author = a.sonolus_id
-            LEFT JOIN chart_likes cl 
-                ON c.id = cl.chart_id AND cl.sonolus_id = $2
-            WHERE c.status = 'PUBLIC'
-            ORDER BY RANDOM()
-            LIMIT $1
-        """
-        return SelectQuery(ChartDBResponseLiked, query, return_count, sonolus_id)
+
+    base_query += " WHERE c.status = 'PUBLIC'"
+
+    if staff_pick is not None:
+        params.append(staff_pick)
+        base_query += f" AND c.staff_pick = ${len(params)}::bool"
+
+    base_query += " ORDER BY RANDOM() LIMIT $1"
+
+    if sonolus_id:
+        return SelectQuery(ChartDBResponseLiked, base_query, *params)
+    return SelectQuery(ChartDBResponse, base_query, *params)
 
 
 def get_chart_by_id(

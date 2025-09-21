@@ -154,6 +154,7 @@ class ChartDBResponse(BaseModel):
     rating: int
     author: str  # author sonolus id
     title: str
+    staff_pick: bool
     artists: Optional[str] = None
     jacket_file_hash: str
     music_file_hash: str

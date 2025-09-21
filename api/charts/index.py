@@ -15,18 +15,22 @@ async def main(
     request: Request,
     type: Literal["random", "quick", "advanced"] = Query("random"),
     page: int = Query(0, ge=0),
+    staff_pick: Optional[bool] = Query(None),
     min_rating: Optional[int] = Query(None),
     max_rating: Optional[int] = Query(None),
     tags: Optional[List[str]] = Query(None),
     min_likes: Optional[int] = Query(None),
     max_likes: Optional[int] = Query(None),
+    min_comments: Optional[int] = Query(None),
+    max_comments: Optional[int] = Query(None),
     liked_by: Optional[bool] = Query(False),
+    commented_on: Optional[bool] = Query(False),
     title_includes: Optional[str] = Query(None),
     description_includes: Optional[str] = Query(None),
     artists_includes: Optional[str] = Query(None),
-    sort_by: Literal["created_at", "rating", "likes", "decaying_likes", "abc"] = Query(
-        "created_at"
-    ),
+    sort_by: Literal[
+        "created_at", "rating", "likes", "comments", "decaying_likes", "abc"
+    ] = Query("created_at"),
     sort_order: Literal["desc", "asc"] = Query("desc"),
     status: Literal["PUBLIC", "PUBLIC_MINE", "UNLISTED", "PRIVATE", "ALL"] = Query(
         "PUBLIC"
@@ -68,7 +72,9 @@ async def main(
                 status_code=fstatus.HTTP_400_BAD_REQUEST,
                 detail="Can't use random for non-public charts.",
             )
-        query = charts.get_random_charts(item_page_count // 2, sonolus_id=sonolus_id)
+        query = charts.get_random_charts(
+            item_page_count // 2, sonolus_id=sonolus_id, staff_pick=staff_pick
+        )
         async with app.db_acquire() as conn:
             rows = await conn.fetch(query)
         # it does convert almost-dict to model to dict, but that adds a layer of "security"
@@ -84,6 +90,7 @@ async def main(
             sort_by=sort_by,
             sort_order=sort_order,
             sonolus_id=sonolus_id,
+            staff_pick=staff_pick,
         )
     else:
         if sort_by == "abc":
@@ -91,13 +98,17 @@ async def main(
         count_query, chart_list_query = charts.get_chart_list(
             page=page,
             items_per_page=item_page_count,
+            staff_pick=staff_pick,
             min_rating=min_rating,
             max_rating=max_rating,
+            min_comments=min_comments,
+            max_comments=max_comments,
             status=status,
             tags=tags,
             min_likes=min_likes,
             max_likes=max_likes,
             liked_by=sonolus_id if liked_by else None,
+            commented_by=sonolus_id if commented_on else None,
             title_includes=title_includes,
             description_includes=description_includes,
             artists_includes=artists_includes,
