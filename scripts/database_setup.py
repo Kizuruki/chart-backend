@@ -62,6 +62,8 @@ END $$;""",
         """CREATE TABLE IF NOT EXISTS charts (
     id TEXT PRIMARY KEY,
     rating INT DEFAULT 1,
+    staff_pick BOOL DEFAULT FALSE,
+    sponsored_until TIMESTAMP DEFAULT NULL,
     author TEXT REFERENCES accounts(sonolus_id) ON DELETE CASCADE,
     chart_author TEXT NOT NULL,
     description TEXT,
@@ -69,6 +71,7 @@ END $$;""",
     artists TEXT,
     tags TEXT[] DEFAULT '{}',
     like_count BIGINT NOT NULL DEFAULT 0,
+    comment_count BIGINT NOT NULL DEFAULT 0,
     log_like_score DOUBLE PRECISION DEFAULT 0 NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -95,6 +98,37 @@ END $$;""",
     deleted_at TIMESTAMP DEFAULT NULL,
     chart_id TEXT REFERENCES charts(id) ON DELETE CASCADE
 );""",
+        """CREATE OR REPLACE FUNCTION update_comment_count()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM charts WHERE id = COALESCE(NEW.chart_id, OLD.chart_id)) THEN
+
+        IF TG_OP = 'INSERT' THEN
+            -- increment comment_count
+            UPDATE charts
+            SET comment_count = comment_count + 1
+            WHERE id = NEW.chart_id;
+
+        ELSIF TG_OP = 'DELETE' THEN
+            -- decrement comment_count
+            UPDATE charts
+            SET comment_count = comment_count - 1
+            WHERE id = OLD.chart_id;
+
+        END IF;
+
+    END IF;
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_update_comment_count ON comments;
+
+CREATE TRIGGER trg_update_comment_count
+AFTER INSERT OR DELETE ON comments
+FOR EACH ROW
+EXECUTE FUNCTION update_comment_count();""",
         """CREATE TABLE IF NOT EXISTS leaderboards (
     id SERIAL PRIMARY KEY,
     submitter TEXT REFERENCES accounts(sonolus_id) ON DELETE CASCADE,
