@@ -59,6 +59,11 @@ import os
 import importlib
 
 
+import os
+import shutil
+import importlib
+
+
 def load_routes(folder, cleanup: bool = True):
     global app
     """Load Routes from the specified directory."""
@@ -68,9 +73,7 @@ def load_routes(folder, cleanup: bool = True):
     def traverse_directory(directory):
         for root, dirs, files in os.walk(directory, topdown=False):
             for file in files:
-                if not "__pycache__" in root and os.path.join(root, file).endswith(
-                    ".py"
-                ):
+                if not "__pycache__" in root and file.endswith(".py"):
                     route_name: str = (
                         os.path.join(root, file)
                         .removesuffix(".py")
@@ -80,21 +83,14 @@ def load_routes(folder, cleanup: bool = True):
 
                     # Check if the route is dynamic or static
                     if "{" in route_name and "}" in route_name:
-                        routes.append(
-                            (route_name, False)
-                        )  # Dynamic route (priority lower)
+                        routes.append((route_name, False))  # Dynamic route
                     else:
-                        routes.append(
-                            (route_name, True)
-                        )  # Static route (priority higher)
+                        routes.append((route_name, True))  # Static route
 
     traverse_directory(folder)
 
-    # Sort the routes: static first, dynamic last. Deeper routes (subdirectories) have higher priority.
-    # We are sorting by two factors:
-    # 1. Whether the route is static (True first) or dynamic (False second).
-    # 2. Depth of the route (deeper subdirectory routes come first).
-    routes.sort(key=lambda x: (not x[1], x[0]))  # Static first, dynamic second
+    # Sort: static first, then dynamic. Deeper routes first.
+    routes.sort(key=lambda x: (not x[1], x[0]))
 
     for route_name, is_static in routes:
         try:
@@ -105,7 +101,6 @@ def load_routes(folder, cleanup: bool = True):
         route_version = route_name.split(".")[0]
         route_name_parts = route_name.split(".")
 
-        # it's the index for the route
         if route_name.endswith(".index"):
             del route_name_parts[-1]
 
@@ -121,6 +116,14 @@ def load_routes(folder, cleanup: bool = True):
         )
 
         print(f"[API] Loaded Route {route_name}")
+
+    # Cleanup after loading
+    if cleanup:
+        for root, dirs, _ in os.walk(folder, topdown=False):
+            if "__pycache__" in dirs:
+                pycache_path = os.path.join(root, "__pycache__")
+                shutil.rmtree(pycache_path, ignore_errors=True)
+                print(f"[API] Removed __pycache__ at {pycache_path}")
 
 
 async def startup_event():
