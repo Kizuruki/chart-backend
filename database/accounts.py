@@ -104,7 +104,7 @@ def create_account_if_not_exists_and_new_session(
     sonolus_handle: int,
     sonolus_username: str,
     session_type: str,
-    expiry_ms: Optional[int] = 30 * 60 * 1000,
+    expiry_ms: int = 30 * 60 * 1000,
 ) -> tuple[ExecutableQuery, SelectQuery[SessionData]]:
     """
     Create or update an account, then create a new session slot.

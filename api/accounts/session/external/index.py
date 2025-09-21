@@ -1,4 +1,4 @@
-import uuid, json, base64, hashlib
+import asyncio, json, base64, hashlib
 import hmac
 from core import ChartFastAPI
 
@@ -48,11 +48,9 @@ async def main(request: Request, data: ExternalServiceUserProfileWithType):
 
     async with app.db_acquire() as conn:
         await conn.execute(account_query)
-        result = await conn.fetchrow(query)
-        await conn.execute(query2)
-
+        result = await asyncio.gather(conn.execute(query2), conn.fetchrow(query))
         if result:
-            return {"session": result.session_key, "expiry": int(result.expires)}
+            return {"session": result[1].session_key, "expiry": int(result[1].expires)}
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error while processing session result.",
