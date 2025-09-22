@@ -221,3 +221,21 @@ class ExternalLoginKeyData(BaseModel):
 
 class DBID(BaseModel):
     id: str
+
+class Notification(BaseModel):
+    id: Optional[str] = None
+    user_id: str
+    title: str
+    content: Optional[str] = None
+    is_read: bool = False
+    created_at: Optional[datetime] = None
+
+class NotificationList(BaseModel):
+    id: str
+    title: str
+    is_read: bool
+
+class NotificationRequest(BaseModel):
+    user_id: str
+    title: str
+    content: Optional[str] = None
