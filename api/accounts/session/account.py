@@ -36,6 +36,6 @@ async def main(
 
     async with app.db_acquire() as conn:
         result = await conn.fetchrow(accounts.get_unread_notifications_count(session.sonolus_id))
-        return_keys["unread_notifications"] = result.total_count if result else 0
+        return_val["unread_notifications"] = result.total_count if result else 0
 
     return return_val
