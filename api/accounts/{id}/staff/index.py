@@ -7,7 +7,7 @@ from database import accounts
 router = APIRouter()
 
 
-@router.patch("/mod")
+@router.patch("/mod/")
 async def mod_user(request: Request, id: str):
     app: ChartFastAPI = request.app
 
@@ -37,7 +37,7 @@ async def unmod_user(request: Request, id: str):
     return {"result": "success"}
 
 
-@router.patch("/admin")
+@router.patch("/admin/")
 async def admin_user(request: Request, id: str):
     app: ChartFastAPI = request.app
 
@@ -52,7 +52,7 @@ async def admin_user(request: Request, id: str):
     return {"result": "success"}
 
 
-@router.patch("/unadmin")
+@router.patch("/unadmin/")
 async def unadmin_user(request: Request, id: str):
     app: ChartFastAPI = request.app
 
