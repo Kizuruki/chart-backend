@@ -74,7 +74,7 @@ def get_comments(
             SELECT 
                 c.id, 
                 c.commenter, 
-                a.sonolus_username AS username,
+                CONCAT(a.sonolus_username, '#', a.sonolus_handle) AS username,
                 c.content, 
                 c.created_at, 
                 c.deleted_at, 
@@ -119,7 +119,7 @@ def get_comments_by_account(
             SELECT 
                 c.id, 
                 c.commenter,
-                a.sonolus_username AS username,
+                CONCAT(a.sonolus_username, '#', a.sonolus_handle) AS username,
                 c.content, 
                 c.created_at, 
                 c.deleted_at, 
