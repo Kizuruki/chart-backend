@@ -91,6 +91,7 @@ def get_chart_list(
             c.comment_count,
             c.created_at, 
             c.updated_at,
+            c.log_like_score,
             c.chart_author || '#' || a.sonolus_handle AS author_full,
             c.chart_author AS chart_design
     """
