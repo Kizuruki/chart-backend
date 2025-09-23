@@ -56,10 +56,10 @@ async def main(
         raise HTTPException(status_code=422, detail=e.errors())
 
     if (
-        (data.description and len(data.description) > 250)
+        (data.description and len(data.description) > 1000)
         or (data.artists and len(data.artists) > 50)
         or (data.title and len(data.title) > 50)
-        or (data.author and len(data.author) > 20)
+        or (data.author and len(data.author) > 50)
         or (data.tags and any(len(tag) > 10 for tag in data.tags))
     ):
         raise HTTPException(
