@@ -22,11 +22,11 @@ from core import ChartFastAPI
 router = APIRouter()
 
 MAX_FILE_SIZES = {
-    "jacket": 5 * 1024 * 1024,  # 5 MB
-    "chart": 10 * 1024 * 1024,  # 10 MB
-    "audio": 25 * 1024 * 1024,  # 25 MB
+    "jacket": int(7.5 * 1024 * 1024),  # 7.5 MB
+    "chart": 20 * 1024 * 1024,  # 20 MB
+    "audio": 30 * 1024 * 1024,  # 30 MB
     "preview": 5 * 1024 * 1024,  # 5 MB
-    "background": 10 * 1024 * 1024,  # 10 MB
+    "background": 15 * 1024 * 1024,  # 15 MB
 }
 
 
