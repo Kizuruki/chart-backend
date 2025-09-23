@@ -79,7 +79,12 @@ async def main(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Chart or comment not found.",
             )
-    return {"result": "success"}
+    d = result.model_dump()
+    if user.mod:
+        d["mod"] = True
+    if user.sonolus_id == d["commenter"]:
+        d["owner"] = True
+    return d
 
 
 @router.get("/")

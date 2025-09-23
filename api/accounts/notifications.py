@@ -4,7 +4,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Request, HTTPException, status, Query
 
-from database import accounts
+from database import accounts, charts
 from helpers.session import get_session, Session
 from helpers.models import NotificationRequest, Notification, ReadUpdate
 
@@ -51,13 +51,21 @@ async def add(
         raise HTTPException(status.HTTP_403_FORBIDDEN)
 
     async with app.db_acquire() as conn:
+        if notification.chart_id:
+            chart_data_query = charts.get_chart_by_id(notification.chart_id)
+            chart_data = await conn.fetchrow(chart_data_query)
+            user_id = chart_data.author
+        elif not notification.user_id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, detail="no chart_id or user_id specified"
+            )
+        else:
+            user_id = notification.user_id
         await conn.execute(
             accounts.add_notification(
-                Notification(
-                    user_id=notification.user_id,
-                    title=notification.title,
-                    content=notification.content,
-                )
+                sonolus_id=user_id,
+                title=notification.title,
+                content=notification.content,
             )
         )
 
@@ -66,7 +74,7 @@ async def add(
 
 @router.get("/{notification_id}/")
 async def read(
-    notification_id: str,
+    notification_id: int,
     request: Request,
     session: Session = get_session(enforce_auth=True),
 ):
@@ -80,7 +88,9 @@ async def read(
         if not notification_id:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Failed to get.")
 
-    return notification.model_dump()
+    d = notification.model_dump()
+    d["timestamp"] = int(d["created_at"].timestamp() * 1000)
+    return d
 
 
 @router.patch("/{notification_id}/")
@@ -102,7 +112,9 @@ async def toggle_notification_read_status(
         if not notification_id:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Failed to update.")
 
-    return notification.model_dump()
+    d = notification.model_dump()
+    d["timestamp"] = int(d["created_at"].timestamp() * 1000)
+    return d
 
 
 @router.delete("/{notification_id}/")

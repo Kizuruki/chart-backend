@@ -394,9 +394,7 @@ def get_notifications(
     )
 
 
-def get_notification(  # could be merged with get_notifs?
-    id: str, sonolus_id: str
-) -> SelectQuery[Notification]:
+def get_notification(id: str, sonolus_id: str) -> SelectQuery[Notification]:
     return SelectQuery(
         Notification,
         """
@@ -423,14 +421,15 @@ def delete_notification(id: str, sonolus_id: str) -> SelectQuery[Notification]:
     )
 
 
-def add_notification(notification: Notification) -> ExecutableQuery:
+def add_notification(sonolus_id: str, title: str, content: str) -> ExecutableQuery:
     return ExecutableQuery(
         """
-            INSERT INTO notifications (user_id, content)
-            VALUES ($1, $2);
+            INSERT INTO notifications (user_id, title, content)
+            VALUES ($1, $2, $3);
         """,
-        notification.user_id,
-        notification.content,
+        sonolus_id,
+        title,
+        content,
     )
 
 

@@ -48,3 +48,9 @@ async def main(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Chart not found."
         )
+    d = exists.model_dump()
+    if user.admin:
+        d["admin"] = True
+    if user.sonolus_id == d["author"]:
+        d["owner"] = True
+    return d

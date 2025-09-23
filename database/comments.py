@@ -25,26 +25,28 @@ def create_comment(
     )
 
 
-def delete_comment(comment_id: int, sonolus_id: Optional[str] = None) -> SelectQuery:
+def delete_comment(
+    comment_id: int, sonolus_id: Optional[str] = None
+) -> SelectQuery[Comment]:
     if sonolus_id:
         return SelectQuery(
-            CommentID,
+            Comment,
             """
                 UPDATE comments
                 SET deleted_at = CURRENT_TIMESTAMP
                 WHERE id = $1 AND commenter = $2 AND deleted_at IS NULL
-                RETURNING id;
+                RETURNING *;
             """,
             comment_id,
             sonolus_id,
         )
     return SelectQuery(
-        CommentID,
+        Comment,
         """
             UPDATE comments
             SET deleted_at = CURRENT_TIMESTAMP
             WHERE id = $1 AND deleted_at IS NULL
-            RETURNING id;
+            RETURNING *;
         """,
         comment_id,
     )

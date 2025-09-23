@@ -37,7 +37,12 @@ async def main(
     async with app.db_acquire() as conn:
         result = await conn.fetchrow(query)
         if result:
-            return {"id": result.id}
+            d = result.model_dump()
+            if user.mod:
+                d["mod"] = True
+            if user.sonolus_id == d["author"]:
+                d["owner"] = True
+            return d
         if user.mod:
             raise HTTPException(
                 status=status.HTTP_404_NOT_FOUND,

@@ -330,28 +330,28 @@ def get_chart_by_id(
 
 def delete_chart(
     chart_id: str, sonolus_id: str = None, confirm_change: bool = False
-) -> SelectQuery[DBID]:
+) -> SelectQuery[ChartDBResponse]:
     if not confirm_change:
         raise ValueError(
             "Deletion not confirmed. Ensure you are deleting the old files from S3 to ensure there is no hanging files."
         )
     if not sonolus_id:
         return SelectQuery(
-            DBID,
+            ChartDBResponse,
             """
                 DELETE FROM charts
                 WHERE id = $1
-                RETURNING id;
+                RETURNING *, chart_author AS chart_design;
             """,
             chart_id,
         )
     else:
         return SelectQuery(
-            DBID,
+            ChartDBResponse,
             """
                 DELETE FROM charts
                 WHERE id = $1 AND author = $2
-                RETURNING id;
+                RETURNING *, chart_author AS chart_design;
             """,
             chart_id,
             sonolus_id,
@@ -539,15 +539,15 @@ def update_status(
     chart_id: str,
     status: Literal["PUBLIC", "UNLISTED", "PRIVATE"],
     sonolus_id: Optional[str] = None,
-) -> SelectQuery[DBID]:
+) -> SelectQuery[ChartDBResponse]:
     if sonolus_id:
         return SelectQuery(
-            DBID,
+            ChartDBResponse,
             """
                 UPDATE charts
                 SET status = $1, updated_at = CURRENT_TIMESTAMP
                 WHERE id = $2 AND author = $3
-                RETURNING id;
+                RETURNING *, chart_author AS chart_design;
             """,
             status,
             chart_id,
@@ -555,12 +555,12 @@ def update_status(
         )
     else:
         return SelectQuery(
-            DBID,
+            ChartDBResponse,
             """
                 UPDATE charts
                 SET status = $1, updated_at = CURRENT_TIMESTAMP
                 WHERE id = $2
-                RETURNING id;
+                RETURNING *, chart_author AS chart_design;
             """,
             status,
             chart_id,

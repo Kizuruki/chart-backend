@@ -174,7 +174,7 @@ class ChartDBResponse(BaseModel):
     comment_count: int
     created_at: datetime
     updated_at: datetime
-    author_full: str
+    author_full: Optional[str] = None
     chart_design: str  # author_full without the handle
 
 
@@ -202,7 +202,7 @@ class Comment(BaseModel):
     created_at: datetime
     deleted_at: Optional[datetime] = None
     chart_id: str
-    owner: bool
+    owner: Optional[bool] = None
 
 
 class ExternalLogin(BaseModel):
@@ -240,7 +240,8 @@ class NotificationList(BaseModel):
 
 
 class NotificationRequest(BaseModel):
-    user_id: str
+    user_id: Optional[str] = None
+    chart_id: Optional[str] = None
     title: str
     content: Optional[str] = None
 
