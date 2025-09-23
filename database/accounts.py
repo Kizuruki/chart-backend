@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, Literal
 
 from database.query import ExecutableQuery, SelectQuery
-from helpers.models import OAuth, SessionData, Account
+from helpers.models import OAuth, SessionData, Account, Notification, NotificationList, Count
 
 """
 sonolus_sessions JSONB
@@ -328,4 +328,71 @@ def update_chart_upload_cooldown(
         """,
         cooldown_timestamp,
         sonolus_id,
+    )
+
+def get_unread_notifications_count(sonolus_id: str) -> SelectQuery[Count]:
+    return SelectQuery(
+        Count,
+        """
+            SELECT COUNT(*) AS total_count
+            FROM notifications
+            WHERE user_id = $1
+            AND is_read = false;
+        """,
+        sonolus_id
+    )
+
+def get_notifications(
+    sonolus_id: str,
+    limit: int = 10,
+    page: int = 0,
+) -> SelectQuery[NotificationList]:
+    return SelectQuery(
+        NotificationList,
+        """
+            SELECT
+                id
+                title
+                is_read
+            FROM notifications
+            WHERE user_id = $1
+            ORDER BY created_at DESC
+            LIMIT $2 OFFSET $3;
+        """,
+        sonolus_id, limit, page * limit
+    )
+
+def get_notification( # could be merged with get_notifs?
+    id: str,
+    sonolus_id: str
+) -> SelectQuery[Notification]:
+    return SelectQuery(
+        Notification,
+        """
+            UPDATE notifications
+            SET is_read = true
+            WHERE id = $1 AND user_id = $2
+            RETURNING id, user_id, title, content, is_read, created_at;
+        """,
+        id, sonolus_id
+    )
+
+def delete_notification(id: str, sonolus_id: str) -> SelectQuery[Notification]:
+    return SelectQuery(
+        Notification,
+        """
+            DELETE FROM notifications
+            WHERE id = $1 AND user_id = $2
+            RETURNING *;
+        """,
+        id, sonolus_id
+    )
+
+def add_notification(notification: Notification) -> ExecutableQuery:
+    return ExecutableQuery(
+        """
+            INSERT INTO notifications (user_id, content)
+            VALUES ($1, $2);
+        """,
+        notification.user_id, notification.content
     )

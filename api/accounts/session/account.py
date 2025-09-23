@@ -4,7 +4,7 @@ from core import ChartFastAPI
 from fastapi import APIRouter, Request, HTTPException, status
 from fastapi.responses import JSONResponse
 
-from database import external
+from database import accounts
 
 from helpers.session import get_session, Session
 
@@ -18,6 +18,8 @@ async def main(
         enforce_auth=True, enforce_type=False, allow_banned_users=False
     ),
 ):
+    app: ChartFastAPI = request.app
+
     return_keys = [
         "sonolus_id",
         "sonolus_handle",
@@ -25,9 +27,15 @@ async def main(
         "created_at",
         "mod",
         "admin",
+        # "unread_notifications",
     ]
     return_val = {}
     for key, value in (await session.user()).model_dump().items():
         if key in return_keys:
             return_val[key] = value
+
+    async with app.db_acquire() as conn:
+        result = await conn.fetchrow(accounts.get_unread_notifications_count(session.sonolus_id))
+        return_val["unread_notifications"] = result.total_count if result else 0
+
     return return_val

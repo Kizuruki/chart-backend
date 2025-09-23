@@ -98,6 +98,14 @@ END $$;""",
     deleted_at TIMESTAMP DEFAULT NULL,
     chart_id TEXT REFERENCES charts(id) ON DELETE CASCADE
 );""",
+        """CREATE TABLE IF NOT EXISTS notifications (
+    id SERIAL PRIMARY KEY,
+    user_id TEXT REFERENCES accounts(sonolus_id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    content TEXT,
+    is_read BOOL DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);""",
         """CREATE OR REPLACE FUNCTION update_comment_count()
 RETURNS TRIGGER AS $$
 BEGIN
