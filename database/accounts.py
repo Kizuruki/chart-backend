@@ -3,7 +3,14 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, Literal
 
 from database.query import ExecutableQuery, SelectQuery
-from helpers.models import OAuth, SessionData, Account, Notification, NotificationList, Count
+from helpers.models import (
+    OAuth,
+    SessionData,
+    Account,
+    Notification,
+    NotificationList,
+    Count,
+)
 
 """
 sonolus_sessions JSONB
@@ -330,6 +337,7 @@ def update_chart_upload_cooldown(
         sonolus_id,
     )
 
+
 def get_unread_notifications_count(sonolus_id: str) -> SelectQuery[Count]:
     return SelectQuery(
         Count,
@@ -339,32 +347,55 @@ def get_unread_notifications_count(sonolus_id: str) -> SelectQuery[Count]:
             WHERE user_id = $1
             AND is_read = false;
         """,
-        sonolus_id
+        sonolus_id,
     )
+
 
 def get_notifications(
     sonolus_id: str,
     limit: int = 10,
     page: int = 0,
+    only_unread: bool = False,
 ) -> SelectQuery[NotificationList]:
+    if only_unread:
+        return SelectQuery(
+            NotificationList,
+            """
+                SELECT
+                    id,
+                    title,
+                    is_read,
+                    created_at
+                FROM notifications
+                WHERE user_id = $1 AND is_read = false
+                ORDER BY created_at DESC
+                LIMIT $2 OFFSET $3;
+            """,
+            sonolus_id,
+            limit,
+            page * limit,
+        )
     return SelectQuery(
         NotificationList,
         """
             SELECT
-                id
-                title
-                is_read
+                id,
+                title,
+                is_read,
+                created_at
             FROM notifications
             WHERE user_id = $1
             ORDER BY created_at DESC
             LIMIT $2 OFFSET $3;
         """,
-        sonolus_id, limit, page * limit
+        sonolus_id,
+        limit,
+        page * limit,
     )
 
-def get_notification( # could be merged with get_notifs?
-    id: str,
-    sonolus_id: str
+
+def get_notification(  # could be merged with get_notifs?
+    id: str, sonolus_id: str
 ) -> SelectQuery[Notification]:
     return SelectQuery(
         Notification,
@@ -374,8 +405,10 @@ def get_notification( # could be merged with get_notifs?
             WHERE id = $1 AND user_id = $2
             RETURNING id, user_id, title, content, is_read, created_at;
         """,
-        id, sonolus_id
+        id,
+        sonolus_id,
     )
+
 
 def delete_notification(id: str, sonolus_id: str) -> SelectQuery[Notification]:
     return SelectQuery(
@@ -385,8 +418,10 @@ def delete_notification(id: str, sonolus_id: str) -> SelectQuery[Notification]:
             WHERE id = $1 AND user_id = $2
             RETURNING *;
         """,
-        id, sonolus_id
+        id,
+        sonolus_id,
     )
+
 
 def add_notification(notification: Notification) -> ExecutableQuery:
     return ExecutableQuery(
@@ -394,5 +429,23 @@ def add_notification(notification: Notification) -> ExecutableQuery:
             INSERT INTO notifications (user_id, content)
             VALUES ($1, $2);
         """,
-        notification.user_id, notification.content
+        notification.user_id,
+        notification.content,
+    )
+
+
+def toggle_notification_read_status(
+    notification_id: str, user_id: str, is_read: bool
+) -> SelectQuery[Notification]:
+    return SelectQuery(
+        Notification,
+        """
+            UPDATE notifications
+            SET is_read = $3
+            WHERE id = $1 AND user_id = $2
+            RETURNING id, user_id, title, content, is_read, created_at;
+        """,
+        notification_id,
+        user_id,
+        is_read,
     )
