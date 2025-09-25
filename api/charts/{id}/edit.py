@@ -61,6 +61,7 @@ async def main(
         or (data.title and len(data.title) > 50)
         or (data.author and len(data.author) > 50)
         or (data.tags and any(len(tag) > 10 for tag in data.tags))
+        or (data.tags and len(data.tags) > 3)
     ):
         raise HTTPException(
             status=status.HTTP_400_BAD_REQUEST, detail="Length limits exceeded"

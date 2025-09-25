@@ -123,7 +123,8 @@ def create_account_if_not_exists_and_new_session(
         raise ValueError("invalid session type. must be 'game' or 'external'.")
 
     expiry_time = int(
-        (datetime.now() + timedelta(milliseconds=expiry_ms)).timestamp() * 1000
+        (datetime.now(timezone.utc) + timedelta(milliseconds=expiry_ms)).timestamp()
+        * 1000
     )
 
     upsert_query = ExecutableQuery(
@@ -212,7 +213,7 @@ def get_account_from_session(
 
 
 def update_cooldown(sonolus_id: str, time_to_add: timedelta) -> ExecutableQuery:
-    cooldown_until = (datetime.now(timezone.utc) + time_to_add).replace(tzinfo=None)
+    cooldown_until = datetime.now(timezone.utc) + time_to_add
 
     return ExecutableQuery(
         """
