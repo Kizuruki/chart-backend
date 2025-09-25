@@ -59,8 +59,9 @@ def get_chart_list(
     title_includes: Optional[str] = None,
     description_includes: Optional[str] = None,
     artists_includes: Optional[str] = None,
+    author_includes: Optional[str] = None,
     sort_by: Literal[
-        "created_at", "rating", "likes", "comments", "decaying_likes", "abc"
+        "created_at", "rating", "likes", "comments", "decaying_likes", "abc", "random"
     ] = "created_at",
     sort_order: Literal["desc", "asc"] = "desc",
     sonolus_id: Optional[str] = None,
@@ -174,12 +175,18 @@ def get_chart_list(
     if artists_includes:
         params.append(f"%{artists_includes.lower()}%")
         conditions.append(f"LOWER(c.artists) LIKE ${len(params)}")
+    if author_includes:
+        params.append(f"%{author_includes.lower()}%")
+        conditions.append(
+            f"LOWER(c.chart_author || '#' || a.sonolus_handle) LIKE ${len(params)}"
+        )
     if meta_includes:
         params.append(f"%{meta_includes.lower()}%")
         placeholder = f"${len(params)}"
         conditions.append(
             f"(LOWER(c.title) LIKE {placeholder} "
             f"OR LOWER(c.description) LIKE {placeholder} "
+            f"OR LOWER(c.chart_author || '#' || a.sonolus_handle) LIKE {placeholder} "
             f"OR LOWER(c.artists) LIKE {placeholder})"
         )
 
@@ -193,6 +200,7 @@ def get_chart_list(
         "comments": "comment_count",
         "decaying_likes": "log_like_score",
         "abc": "title",
+        "random": "RANDOM()",
     }.get(sort_by, "created_at")
 
     sort_order_sql = "DESC" if sort_order.lower() == "desc" else "ASC"

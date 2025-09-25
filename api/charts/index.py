@@ -28,8 +28,9 @@ async def main(
     title_includes: Optional[str] = Query(None),
     description_includes: Optional[str] = Query(None),
     artists_includes: Optional[str] = Query(None),
+    author_includes: Optional[str] = Query(None),
     sort_by: Literal[
-        "created_at", "rating", "likes", "comments", "decaying_likes", "abc"
+        "created_at", "rating", "likes", "comments", "decaying_likes", "abc", "random"
     ] = Query("created_at"),
     sort_order: Literal["desc", "asc"] = Query("desc"),
     status: Literal["PUBLIC", "PUBLIC_MINE", "UNLISTED", "PRIVATE", "ALL"] = Query(
@@ -114,6 +115,7 @@ async def main(
             artists_includes=artists_includes,
             sort_by=sort_by,
             sort_order=sort_order,
+            author_includes=author_includes,
             meta_includes=meta_includes,
             sonolus_id=sonolus_id,
             owned_by=sonolus_id if use_owned_by else None,
