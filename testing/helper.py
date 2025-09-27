@@ -1,6 +1,8 @@
 from typing import Callable, Optional, Any, Protocol, Generator, IO
+from . import config as testing_config
 
 import requests
+from colorama import init, Fore
 
 print("NOTE: auth in local config.yaml should match server's auth")
 print("do NOT use this with prod server")
@@ -15,6 +17,7 @@ class Body:
         self, 
         params: Optional[dict[str, str]] = None, 
         data: Optional[dict[Any, Any]] = None, 
+        form_data: Optional[dict[str, Any]] = None,
         files: Optional[dict[str, tuple[str, IO, str]]] = None, 
         format_path: Optional[dict[str, str]] = None, 
         use_private_auth: bool = False
@@ -24,6 +27,7 @@ class Body:
         self.files = files
         self.format_path = format_path
         self.use_private_auth = use_private_auth
+        self.form_data = form_data
 
 class _RoutedFunction(Protocol):
     id: str
@@ -70,13 +74,15 @@ class Test:
         return route.id in self.processed_routes and route.id not in self.failed_routes
 
     def start(self):
+        init(autoreset=True)
+
         self.processed_routes: list[str] = []
         self.failed_routes: list[str] = []
         ret_vals: dict[str, Any] = {}
         skipped_routes = 0
 
-        self.url = input("Server URL (with scheme and no trailing slashes) (prod: https://sono_api.untitledcharts.com/api): ")
-        self.sonolus_url = input("Sonoserver URL (WITHOUT scheme and no trailing slashes) (untitledcharts.com/sonolus): ")
+        self.url = testing_config.SERVER_URL
+        self.sonolus_url = testing_config.SONOSERVER_URL
         print(f"Running test for {len(self.routes)} routes...")
 
         for pos, (id, route) in enumerate(self.routes.items()):
@@ -91,7 +97,7 @@ class Test:
                         raise Exception(f"Dependency {dependency.id} is not yet processed")
                 
                     if dependency.id in self.failed_routes:
-                        print(f"FAILED | Dependency {dependency.id} failed, skipping this route")
+                        print(Fore.YELLOW + f"SKIPPED | Dependency {dependency.id} failed, skipping this route")
                         raise SkipRoute()
                     
                     if dependency.value or dependency.use_for_auth:
@@ -114,36 +120,34 @@ class Test:
                     if body.use_private_auth:
                         headers[config["server"]["auth-header"]] = config["server"]["auth"]
                     elif auth:
-                        headers[config["server"]["auth-header"]] = auth
+                        headers["authorization"] = auth
 
                     path = route.path
                     if body.format_path:
                         for key, val in body.format_path.items():
                             path = path.replace("{" + key + "}", val)
 
-                    response = requests.request(route.method, self.url + path, params=body.params, data=body.data, headers=headers, files=body.files)
+                    response = requests.request(route.method, self.url + path, params=body.params, data=body.form_data, headers=headers, files=body.files, json=body.data)
 
                     if not response.ok:
-                        print(f"FAILED | Request status {response.status_code}")
+                        print(Fore.RED + f"FAILED | Request status {response.status_code}, text: {response.text}")
                         self.failed_routes.append(id)
                         self.processed_routes.append(id)
                         continue
 
-                    generator.send(response)
-
                     try:
-                        ret_vals[id] = next(generator)
+                        ret_vals[id] = generator.send(response)
                     except StopIteration:
                         pass
 
-                    print("OK")
+                    print(Fore.GREEN + "OK")
                     self.processed_routes.append(id)
 
                 except Exception as e:
                     if isinstance(e, SkipRoute):
                         raise
 
-                    print(f"FAILED | Exception: {type(e).__name__}: {e}")
+                    print(Fore.RED + f"FAILED | Exception: {type(e).__name__}: {e}")
                     self.failed_routes.append(id)
                     self.processed_routes.append(id)
                     continue
@@ -152,7 +156,6 @@ class Test:
                 skipped_routes += 1
                 self.failed_routes.append(id)
                 self.processed_routes.append(id)
-                print("skipped")
                 continue
 
         print(f"{len(self.failed_routes)}/{len(self.routes)} ({round(len(self.failed_routes) / len(self.routes) * 100, 2)}%) failed, {skipped_routes} of them were skipped")

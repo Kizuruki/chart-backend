@@ -1,13 +1,15 @@
 # How to launch
-1. Install `requests`
+1. Install `requests` and `colorama`
 2. Create a directory `assets` with files `jacket.png`, `music.mp3`, `level.data`
-3. Run using `python3 -m test`
+3. Create and fill config.py
+4. Run using `python3 -m testing`
 
 # Sorta docs
 ### test.Body()
 #### Parameters
 - `params` (`Optional[ {param:str : value:str} ]`): query parameters (`url?param=value`);
 - `data` (`Optional[ {any: any} ]`): request body;
+- `form_data` (`Optional[ {str: any} ]`): request form;
 - `files` (`Optional[ {field:str : (filename:str, file:IO, mime_type:str)} ]`);
 - `format_path` (`Optional[ {key:str : val:str} ]`): replaces `"{key}"` in url with `"val"`;
 - `use_private_auth` (`Optional[ bool ] = False`): uses `config.server.auth` for authorizing.

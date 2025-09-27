@@ -1,4 +1,5 @@
 from .helper import *
+from json import dumps
 from requests import Response
 
 test = Test()
@@ -57,25 +58,25 @@ def account():
 
 @test.route("/accounts/{id}/staff/admin", "PATCH", dependencies=[After(account, value="account")])
 def admin(account: dict):
-    yield Body(format_path={"id": account["id"]}, use_private_auth=True)
+    yield Body(format_path={"id": account["sonolus_id"]}, use_private_auth=True)
 
 @test.route("/accounts/{id}/staff/unadmin", "PATCH", dependencies=[After(account, value="account"), After(admin)])
 def unadmin(account: dict):
-    yield Body(format_path={"id": account["id"]}, use_private_auth=True)
+    yield Body(format_path={"id": account["sonolus_id"]}, use_private_auth=True)
 
 @test.route("/accounts/{id}/staff/mod", "PATCH", dependencies=[After(account, value="account")])
 def mod(account: dict):
-    yield Body(format_path={"id": account["id"]}, use_private_auth=True)
+    yield Body(format_path={"id": account["sonolus_id"]}, use_private_auth=True)
 
 @test.route("/accounts/notifications/", "POST", dependencies=[After(external_auth, use_for_auth=True), After(account, value="account"), After(mod)])
 def add_notification(account: dict):
     yield Body(data={
-        "user_id": account["id"],
+        "user_id": account["sonolus_id"],
         "title": "notification.",
         "content": "test"
     })
 
-@test.route("/account/notifications", "GET", dependencies=[After(external_auth, use_for_auth=True), After(add_notification)])
+@test.route("/accounts/notifications/", "GET", dependencies=[After(external_auth, use_for_auth=True), After(add_notification)])
 def get_notification_list():
     response: Response = yield
 
@@ -85,13 +86,13 @@ def get_notification_list():
     
     yield data["notifications"][0]["id"]
 
-@test.route("/account/notifications/{id}/", "GET", dependencies=[After(external_auth, use_for_auth=True), After(get_notification_list, value="id")])
-def get_notification(id: str):
-    yield Body(format_path={"id": id})
+@test.route("/accounts/notifications/{id}/", "GET", dependencies=[After(external_auth, use_for_auth=True), After(get_notification_list, value="id")])
+def get_notification(id: int):
+    yield Body(format_path={"id": str(id)})
 
-@test.route("/account/notifications/{id}/", "DELETE", dependencies=[After(external_auth, use_for_auth=True), After(get_notification_list, value="id")])
-def delete_notification(id: str):
-    yield Body(format_path={"id": id})
+@test.route("/accounts/notifications/{id}/", "DELETE", dependencies=[After(external_auth, use_for_auth=True), After(get_notification_list, value="id")])
+def delete_notification(id: int):
+    yield Body(format_path={"id": str(id)})
 
 @test.route("/charts/", "GET")
 def charts():
@@ -100,17 +101,20 @@ def charts():
 @test.route("/charts/upload/", "POST", dependencies=[After(external_auth, use_for_auth=True)])
 def upload_chart():
     response: Response = yield Body(
-        data={
-            "rating": 10,
-            "title": "Cool Level",
-            "artists": "Cool Artist",
-            "tags": ["test", "test2"],
-            "includes_background": False,
-            "includes_preview": False,
+        form_data={
+            "data": dumps({
+                "rating": 10,
+                "title": "Cool Level",
+                "author": "Cool Author",
+                "artists": "Cool Artist",
+                "tags": ["test", "test2"],
+                "includes_background": False,
+                "includes_preview": False,
+            })
         },
         files={
-            "jacket_image": ("jacket.png", open("assets/jacket.png", "rb"), "image/png"),
-            "chart_file": ("chart.sus", open("assets/level.data", "rb"), "application/gzip"),
+            "jacket_image": ("jacket.jpg", open("assets/jacket.jpg", "rb"), "image/jpeg"),
+            "chart_file": ("chart.sus", open("assets/chart.usc", "r"), "application/json"),
             "audio_file": ("audio.mp3", open("assets/music.mp3", "rb"), "audio/mpeg"),
         }
     )
@@ -119,7 +123,7 @@ def upload_chart():
 
 @test.route("/charts/{id}/edit/", "PATCH", dependencies=[After(external_auth, use_for_auth=True), After(upload_chart, value="id")])
 def edit_chart(id: str):
-    yield Body(data={"rating": 15}, format_path={"id": id})
+    yield Body(form_data={"data": dumps({"rating": 15})}, format_path={"id": id})
 
 @test.route("/charts/{id}/", "GET", dependencies=[After(external_auth, use_for_auth=True), After(upload_chart, value="id")])
 def get_chart(id: str):
@@ -137,14 +141,6 @@ def like_chart(id: str):
 def change_chart_visibility(id: str):
     yield Body(data={"status": "PUBLIC"}, format_path={"id": id})
 
-@test.route("/charts/{id}/stpick", "PATCH", dependencies=[After(external_auth, use_for_auth=True), After(upload_chart, value="id")])
-def staff_pick_chart(id: str):
-    yield Body(data={"value": True}, format_path={"id": id})
-
-@test.route("/accounts/{id}/staff/", "PATCH", dependencies=[After(account, value="account"), After(mod)])
-def unmod(account: dict):
-    yield Body(format_path={"id": account["id"]}, use_private_auth=True)
-
 @test.route("/accounts/session/", "POST", dependencies=[After(account, value="account")])
 def game_auth(account: dict):
     response: Response = yield Body(
@@ -152,7 +148,7 @@ def game_auth(account: dict):
             "type": "game",
 
             "id": account["sonolus_id"],
-            "handle": account["sonolus_handle"],
+            "handle": str(account["sonolus_handle"]),
             "name": account["sonolus_username"],
             "avatarType": "default",
             "avatarForegroundType": "player",
@@ -168,6 +164,14 @@ def game_auth(account: dict):
 
     yield response.json()["session"]
 
+@test.route("/charts/{id}/stpick", "PATCH", dependencies=[After(game_auth, use_for_auth=True), After(upload_chart, value="id")])
+def staff_pick_chart(id: str):
+    yield Body(data={"value": True}, format_path={"id": id})
+
+@test.route("/accounts/{id}/staff/", "PATCH", dependencies=[After(account, value="account"), After(mod)])
+def unmod(account: dict):
+    yield Body(format_path={"id": account["sonolus_id"]}, use_private_auth=True)
+
 @test.route("/charts/{id}/comment", "POST", dependencies=[After(game_auth, use_for_auth=True), After(upload_chart, value="id")])
 def add_comment(id: str):
     yield Body(data={"content": "test comment"}, format_path={"id": id})
@@ -178,9 +182,11 @@ def get_comments(id: str):
     yield response.json()["data"][0]["id"]
 
 @test.route("/charts/{chart_id}/comment/{comment_id}/", "DELETE", dependencies=[After(game_auth, use_for_auth=True), After(upload_chart, value="chart_id"), After(get_comments, value="comment_id")])
-def delete_comment(chart_id: str, comment_id: str):
-    yield Body(format_path={"chart_id": chart_id, "comment_id": comment_id})
+def delete_comment(chart_id: str, comment_id: int):
+    yield Body(format_path={"chart_id": chart_id, "comment_id": str(comment_id)})
 
 @test.route("/charts/{id}/delete/", "DELETE", dependencies=[After(game_auth, use_for_auth=True), After(upload_chart, value="id")])
 def delete_chart(id: str):
     yield Body(format_path={"id": id})
+
+test.start()
