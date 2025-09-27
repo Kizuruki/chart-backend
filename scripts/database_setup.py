@@ -95,7 +95,7 @@ END $$;""",
     commenter TEXT REFERENCES accounts(sonolus_id) ON DELETE CASCADE,
     content TEXT NOT NULL,
     created_at timestamp with time zone DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'UTC'),
-    deleted_at timestamp with time zone DEFAULT NULL AT TIME ZONE 'UTC',
+    deleted_at timestamp with time zone DEFAULT (NULL AT TIME ZONE 'UTC'),
     chart_id TEXT REFERENCES charts(id) ON DELETE CASCADE
 );""",
         """CREATE TABLE IF NOT EXISTS notifications (
@@ -225,7 +225,7 @@ CREATE INDEX IF NOT EXISTS idx_charts_artists_trgm ON charts USING GIN (LOWER(ar
         """CREATE TABLE IF NOT EXISTS external_login_ids (
     id_key TEXT NOT NULL PRIMARY KEY,
     session_key TEXT,
-    expires_at timestamp with time zone DEFAULT (CURRENT_TIMESTAMP + INTERVAL '6 minutes') AT TIME ZONE 'UTC'
+    expires_at timestamp with time zone DEFAULT ((CURRENT_TIMESTAMP + INTERVAL '6 minutes') AT TIME ZONE 'UTC')
 );
 CREATE INDEX IF NOT EXISTS idx_expires_at ON external_login_ids (expires_at);""",
         # """SELECT cron.schedule(
