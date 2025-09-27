@@ -75,9 +75,13 @@ class Session:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token type."
                 )
-
+            user = await self.user()
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in."
+                )
             if not self.allow_banned_users:
-                if (await self.user()).banned:
+                if user.banned:
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN, detail="User banned."
                     )
