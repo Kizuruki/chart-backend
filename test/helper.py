@@ -8,10 +8,12 @@ print("do NOT use this with prod server")
 from helpers.config_loader import get_config
 config = get_config()
 
+_EMPTY_STRING = '' # python<3.12 smh
+
 class Body:
     def __init__(
         self, 
-        params: Optional[dict[str, Any]] = None, 
+        params: Optional[dict[str, str]] = None, 
         data: Optional[dict[Any, Any]] = None, 
         files: Optional[dict[str, tuple[str, IO, str]]] = None, 
         format_path: Optional[dict[str, str]] = None, 
@@ -39,7 +41,7 @@ class After:
         self.value = value
         self.use_for_auth = use_for_auth
 
-class _SkipRoute(Exception): ...
+class SkipRoute(Exception): ...
 
 class _Route:
     def __init__(self, path: str, func: _RoutedFunction, method: str, dependencies: list[After]):
@@ -90,11 +92,11 @@ class Test:
                 
                     if dependency.id in self.failed_routes:
                         print(f"FAILED | Dependency {dependency.id} failed, skipping this route")
-                        raise _SkipRoute()
+                        raise SkipRoute()
                     
                     if dependency.value or dependency.use_for_auth:
                         if dependency.id not in ret_vals:
-                            raise Exception(f"Dependency {dependency.id} returned nothing, but function requires value \"{dependency.value if dependency.value else ""}\"")
+                            raise Exception(f"Dependency {dependency.id} returned nothing, but function requires value \"{dependency.value if dependency.value else _EMPTY_STRING}\"")
                         
                         if dependency.value:
                             kwargs[dependency.value] = ret_vals[dependency.id]
@@ -110,7 +112,7 @@ class Test:
 
                     headers = {}
                     if body.use_private_auth:
-                        headers[config["server"]["auth-header"]] = config["server"]["secret-key"]
+                        headers[config["server"]["auth-header"]] = config["server"]["auth"]
                     elif auth:
                         headers[config["server"]["auth-header"]] = auth
 
@@ -138,7 +140,7 @@ class Test:
                     self.processed_routes.append(id)
 
                 except Exception as e:
-                    if isinstance(e, _SkipRoute):
+                    if isinstance(e, SkipRoute):
                         raise
 
                     print(f"FAILED | Exception: {type(e).__name__}: {e}")
@@ -146,10 +148,11 @@ class Test:
                     self.processed_routes.append(id)
                     continue
 
-            except _SkipRoute:
+            except SkipRoute:
                 skipped_routes += 1
                 self.failed_routes.append(id)
                 self.processed_routes.append(id)
+                print("skipped")
                 continue
 
         print(f"{len(self.failed_routes)}/{len(self.routes)} ({round(len(self.failed_routes) / len(self.routes) * 100, 2)}%) failed, {skipped_routes} of them were skipped")
