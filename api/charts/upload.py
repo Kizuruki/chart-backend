@@ -1,6 +1,6 @@
 import uuid, io, asyncio, json, time, gzip
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Request, HTTPException, status, UploadFile, Form
 from fastapi.responses import JSONResponse
@@ -99,7 +99,7 @@ async def main(
 
     cooldown = user.chart_upload_cooldown
     if cooldown:
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         if now < cooldown:
             remaining = cooldown - now
             minutes, seconds = divmod(int(remaining.total_seconds()), 60)
