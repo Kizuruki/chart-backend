@@ -2,7 +2,7 @@ from typing import Callable, Optional, Any, Protocol, Generator, IO
 
 import requests
 
-print("NOTE: secret-key in local config.yaml should match server's secret-key")
+print("NOTE: auth in local config.yaml should match server's auth")
 print("do NOT use this with prod server")
 
 from helpers.config_loader import get_config
