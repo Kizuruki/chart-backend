@@ -554,14 +554,14 @@ def update_status(
             """
                 UPDATE charts
                 SET 
-                    status = $1, 
+                    status = $1::chart_status, 
                     updated_at = CURRENT_TIMESTAMP,
                     published_at = CASE 
-                        WHEN $1 = 'PUBLIC' AND published_at IS NULL THEN CURRENT_TIMESTAMP
+                        WHEN $1::chart_status = 'PUBLIC' AND published_at IS NULL THEN CURRENT_TIMESTAMP
                         ELSE published_at
                     END
                 WHERE id = $2 AND author = $3
-                RETURNING *, chart_author AS chart_design;
+                RETURNING charts.*, chart_author AS chart_design;
             """,
             status,
             chart_id,
@@ -573,14 +573,14 @@ def update_status(
             """
                 UPDATE charts
                 SET 
-                    status = $1, 
+                    status = $1::chart_status, 
                     updated_at = CURRENT_TIMESTAMP,
                     published_at = CASE 
-                        WHEN $1 = 'PUBLIC' AND published_at IS NULL THEN CURRENT_TIMESTAMP
+                        WHEN $1::chart_status = 'PUBLIC' AND published_at IS NULL THEN CURRENT_TIMESTAMP
                         ELSE published_at
                     END
                 WHERE id = $2
-                RETURNING *, chart_author AS chart_design;
+                RETURNING charts.*, chart_author AS chart_design;
             """,
             status,
             chart_id,
