@@ -1,3 +1,5 @@
+import asyncio
+
 from core import ChartFastAPI
 
 from fastapi import APIRouter, Request, HTTPException, status
@@ -14,22 +16,42 @@ async def main_delete(request: Request, id: str):
     if request.headers.get(app.auth_header) != app.auth:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="why?")
 
-    prefix = f"{id}/"
     bucket_name = app.s3_bucket
 
-    async with app.s3_session_getter() as s3_client:
-        paginator = s3_client.get_paginator("list_objects_v2")
+    prefixes = []  # XXX: grab from database, should be chart_author_id/chart_id
 
-        async for page in paginator.paginate(Bucket=bucket_name, Prefix=prefix):
-            objects = page.get("Contents", [])
+    async with app.s3_session_getter() as s3:
+        bucket = await s3.Bucket(bucket_name)
 
-            if not objects:
-                continue
+        delete_batches = []
 
-            delete_keys = [{"Key": obj["Key"]} for obj in objects]
-            await s3_client.delete_objects(
-                Bucket=bucket_name, Delete={"Objects": delete_keys}
-            )
+        # Delete everything under {id}/
+        batch = []
+        async for obj in bucket.objects.filter(Prefix=f"{id}/"):
+            batch.append({"Key": obj.key})
+            if len(batch) == 1000:
+                delete_batches.append(batch)
+                batch = []
+        if batch:
+            delete_batches.append(batch)
+
+        # Delete everything under {prefix}/replays/{id}/
+        for prefix in prefixes:
+            full_prefix = f"{prefix}/replays/{id}/"
+            batch = []
+            async for obj in bucket.objects.filter(Prefix=full_prefix):
+                batch.append({"Key": obj.key})
+                if len(batch) == 1000:
+                    delete_batches.append(batch)
+                    batch = []
+            if batch:
+                delete_batches.append(batch)
+
+        tasks = [
+            bucket.delete_objects(Delete={"Objects": delete_batch})
+            for delete_batch in delete_batches
+        ]
+        await asyncio.gather(*tasks)
 
     query = accounts.delete_account(id, confirm_change=True)
 
