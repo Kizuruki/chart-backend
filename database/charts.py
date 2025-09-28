@@ -553,7 +553,13 @@ def update_status(
             ChartDBResponse,
             """
                 UPDATE charts
-                SET status = $1, updated_at = CURRENT_TIMESTAMP
+                SET 
+                    status = $1, 
+                    updated_at = CURRENT_TIMESTAMP,
+                    published_at = CASE 
+                        WHEN $1 = 'PUBLIC' AND published_at IS NULL THEN CURRENT_TIMESTAMP
+                        ELSE published_at
+                    END
                 WHERE id = $2 AND author = $3
                 RETURNING *, chart_author AS chart_design;
             """,
@@ -566,7 +572,13 @@ def update_status(
             ChartDBResponse,
             """
                 UPDATE charts
-                SET status = $1, updated_at = CURRENT_TIMESTAMP
+                SET 
+                    status = $1, 
+                    updated_at = CURRENT_TIMESTAMP,
+                    published_at = CASE 
+                        WHEN $1 = 'PUBLIC' AND published_at IS NULL THEN CURRENT_TIMESTAMP
+                        ELSE published_at
+                    END
                 WHERE id = $2
                 RETURNING *, chart_author AS chart_design;
             """,
