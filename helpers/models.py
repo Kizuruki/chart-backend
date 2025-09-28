@@ -173,6 +173,7 @@ class ChartDBResponse(BaseModel):
     like_count: int
     comment_count: int
     created_at: datetime
+    published_at: datetime
     updated_at: datetime
     author_full: Optional[str] = None
     chart_design: str  # author_full without the handle
