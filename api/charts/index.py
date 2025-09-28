@@ -30,8 +30,15 @@ async def main(
     artists_includes: Optional[str] = Query(None),
     author_includes: Optional[str] = Query(None),
     sort_by: Literal[
-        "created_at", "rating", "likes", "comments", "decaying_likes", "abc", "random"
-    ] = Query("created_at"),
+        "created_at",
+        "rating",
+        "likes",
+        "comments",
+        "decaying_likes",
+        "abc",
+        "random",
+        "published_at",
+    ] = Query("published_at"),
     sort_order: Literal["desc", "asc"] = Query("desc"),
     status: Literal["PUBLIC", "PUBLIC_MINE", "UNLISTED", "PRIVATE", "ALL"] = Query(
         "PUBLIC"

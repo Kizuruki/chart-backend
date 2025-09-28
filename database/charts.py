@@ -61,7 +61,14 @@ def get_chart_list(
     artists_includes: Optional[str] = None,
     author_includes: Optional[str] = None,
     sort_by: Literal[
-        "created_at", "rating", "likes", "comments", "decaying_likes", "abc", "random"
+        "created_at",
+        "rating",
+        "likes",
+        "comments",
+        "decaying_likes",
+        "abc",
+        "random",
+        "published_at",
     ] = "created_at",
     sort_order: Literal["desc", "asc"] = "desc",
     sonolus_id: Optional[str] = None,
@@ -90,7 +97,8 @@ def get_chart_list(
             c.rating, 
             c.like_count,
             c.comment_count,
-            c.created_at, 
+            c.created_at,
+            c.published_at,
             c.updated_at,
             c.log_like_score,
             c.chart_author || '#' || a.sonolus_handle AS author_full,
@@ -195,6 +203,7 @@ def get_chart_list(
 
     sort_column = {
         "created_at": "created_at",
+        "published_at": "published_at",
         "rating": "rating",
         "likes": "like_count",
         "comments": "comment_count",
@@ -205,12 +214,17 @@ def get_chart_list(
 
     sort_order_sql = "DESC" if sort_order.lower() == "desc" else "ASC"
 
+    filter_published_at_null = (
+        "AND published_at IS NOT NULL" if sort_column == "published_at" else ""
+    )
+
     query = f"""
         WITH chart_data AS (
             {inner_select}
         )
         SELECT *
         FROM chart_data
+        WHERE 1=1 {filter_published_at_null}
         ORDER BY {sort_column} {sort_order_sql}
         LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}
     """
@@ -263,6 +277,7 @@ def get_random_charts(
             c.like_count,
             c.comment_count,
             c.created_at,
+            c.published_at,
             c.updated_at,
             c.chart_author || '#' || a.sonolus_handle AS author_full,
             c.chart_author AS chart_design
