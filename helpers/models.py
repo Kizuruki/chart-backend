@@ -248,3 +248,13 @@ class NotificationRequest(BaseModel):
 
 class ReadUpdate(BaseModel):
     is_read: bool
+
+
+class LeaderboardDBResponse(BaseModel):
+    id: int
+    submitter: str
+    replay_hash: str
+    chart_id: str
+    created_at: datetime
+    chart_prefix: str
+    # XXX: todo, grab perfects/greats/goods/misses, arcadeScore, accuracyScore
