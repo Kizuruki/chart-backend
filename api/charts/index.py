@@ -38,7 +38,7 @@ async def main(
         "abc",
         "random",
         "published_at",
-    ] = Query("published_at"),
+    ] = Query("created_at"),
     sort_order: Literal["desc", "asc"] = Query("desc"),
     status: Literal["PUBLIC", "PUBLIC_MINE", "UNLISTED", "PRIVATE", "ALL"] = Query(
         "PUBLIC"
