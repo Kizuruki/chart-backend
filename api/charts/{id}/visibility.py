@@ -51,7 +51,7 @@ async def main(
                     WebhookEmbed()
                     .set_title("Chart visibility change")
                     .set_description(
-                        f"The chart `{sanitize_md(result.title)}` (`{sanitize_md(result.author_full)}`) was changed to `{result.status}`.\n\n{url_creator(app.config['server']['sonolus-server-url'], 'levels', app.config['server']['sonolus-server-chart-prefix'] + result.id, as_sonolus_open=True)}"
+                        f"The chart `{sanitize_md(result.title)}` (`{sanitize_md(result.author_full)}`) was changed to `{data.status}`.\n\n{url_creator(app.config['server']['sonolus-server-url'], 'levels', app.config['server']['sonolus-server-chart-prefix'] + result.id, as_sonolus_open=True)}"
                     )
                     .set_timestamp(True)
                     .set_thumbnail(
@@ -64,8 +64,8 @@ async def main(
                     )
                     .set_color(
                         "RED"
-                        if result.status == "PRIVATE"
-                        else "YELLOW" if result.status == "UNLISTED" else "GREEN"
+                        if data.status == "PRIVATE"
+                        else "YELLOW" if data.status == "UNLISTED" else "GREEN"
                     )
                 )
                 wmsg.add_embed(wembed)
@@ -79,9 +79,8 @@ async def main(
                     app.config["discord"]["published-webhook"],
                     app.config["discord"]["avatar-url"],
                     app.config["discord"]["username"],
-                    content="-" * 100,
                 )
-                wembeds = []
+                wembeds = [WebhookEmbed()]
                 wembed_jp = (
                     WebhookEmbed()
                     .set_title("創作譜面が公開されました")
@@ -119,7 +118,6 @@ async def main(
                 )
                 wembeds.append(wembed_en)
 
-                # Add both embeds to the webhook message and send
                 for embed in wembeds:
                     wmsg.add_embed(embed)
 

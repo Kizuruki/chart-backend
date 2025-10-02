@@ -145,6 +145,8 @@ async def discord_send(
         if embed_obj.color:
             embed["color"] = hex_to_decimal_color(embed_obj.color)
 
+        if embed == {}:
+            embed["title"] = "​"
         serialized_embeds.append(embed)
 
     payload = {

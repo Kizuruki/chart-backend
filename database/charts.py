@@ -524,14 +524,24 @@ def add_like(chart_id: str, sonolus_id: str) -> ExecutableQuery:
     )
 
 
-def set_staff_pick(chart_id: str, value: bool) -> SelectQuery[DBID]:
+def set_staff_pick(chart_id: str, value: bool) -> SelectQuery[ChartDBResponse]:
     return SelectQuery(
-        DBID,
+        ChartDBResponse,
         """
-        UPDATE charts
-        SET staff_pick = $2::bool
-        WHERE id = $1
-        RETURNING id;
+        WITH updated AS (
+            UPDATE charts
+            SET staff_pick = $2::bool,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1
+            RETURNING id, staff_pick
+        )
+        SELECT 
+            charts.*, 
+            charts.chart_author AS chart_design,
+            accounts.sonolus_handle || '#' || charts.chart_author AS author_full
+        FROM charts
+        JOIN updated ON charts.id = updated.id
+        JOIN accounts ON charts.author = accounts.sonolus_id;
         """,
         chart_id,
         value,
