@@ -10,12 +10,27 @@ ConfigTypeOAuth = TypedDict(
     },
 )
 
+ConfigTypeDiscord = TypedDict(
+    "ConfigTypeDiscord",
+    {
+        "avatar-url": str,
+        "username": str,
+        "published-webhook": str,
+        "staff-pick-webhook": str,
+        "new-uploads-webhook": str,
+        "all-visibility-changes-webhook": str,
+        "comments-webhook": str,
+    },
+)
+
 ConfigTypeServer = TypedDict(
     "ConfigTypeServer",
     {
         "port": int,
         "secret-key": str,
         "base-url": str,
+        "sonolus-server-url": str,
+        "sonolus-server-chart-prefix": str,
         "force-https": bool,
         "auth": str,
         "auth-header": str,
@@ -55,6 +70,7 @@ ConfigType = TypedDict(
         "server": ConfigTypeServer,
         "s3": ConfigTypeS3,
         "psql": ConfigTypePsql,
+        "discord": ConfigTypeDiscord,
         "oauth": ConfigTypeOAuth,
     },
 )

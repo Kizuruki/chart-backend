@@ -1,7 +1,9 @@
 server:
   port: 8000
   secret-key: "secret key for stored sessions"
-  base-url: "base api url"
+  base-url: "base api url, trailing slash"
+  sonolus-server-url: "sonolus server url, trailing slash"
+  sonolus-server-chart-prefix: "sonolus server chart prefix, eg. UnCh-"
   force-https: False # on the / link redirects
   # Should match sonolus backend auth
   # Should not be given out
@@ -24,6 +26,17 @@ psql:
   password: "..."
   pool-min-size: 10
   pool-max-size: 20
+discord:
+  # webhook settings
+  avatar-url: ""
+  username: ""
+  # new published songs, first time only
+  published-webhook: ""
+  staff-pick-webhook: ""
+  # for moderation
+  new-uploads-webhook: ""
+  all-visibility-changes-webhook: ""
+  comments-webhook: ""
 oauth:
   discord-client-id: ""
   discord-client-secret: ""

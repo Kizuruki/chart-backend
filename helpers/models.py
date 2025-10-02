@@ -178,6 +178,8 @@ class ChartDBResponse(BaseModel):
     author_full: Optional[str] = None
     chart_design: str  # author_full without the handle
 
+    is_first_publish: Optional[bool] = None  # only returned on update_status.
+
 
 class ChartDBResponseLiked(ChartDBResponse):
     liked: bool

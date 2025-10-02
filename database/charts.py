@@ -567,16 +567,26 @@ def update_status(
         return SelectQuery(
             ChartDBResponse,
             """
-                UPDATE charts
-                SET 
-                    status = $1::chart_status, 
-                    updated_at = CURRENT_TIMESTAMP,
-                    published_at = CASE 
-                        WHEN $1::chart_status = 'PUBLIC' AND published_at IS NULL THEN CURRENT_TIMESTAMP
-                        ELSE published_at
-                    END
-                WHERE id = $2 AND author = $3
-                RETURNING charts.*, chart_author AS chart_design;
+                WITH updated AS (
+                    UPDATE charts
+                    SET 
+                        status = $1::chart_status, 
+                        updated_at = CURRENT_TIMESTAMP,
+                        published_at = CASE 
+                            WHEN $1::chart_status = 'PUBLIC' AND published_at IS NULL THEN CURRENT_TIMESTAMP
+                            ELSE published_at
+                        END
+                    WHERE id = $2 AND author = $3
+                    RETURNING id, published_at, status
+                )
+                SELECT 
+                    charts.*, 
+                    chart_author AS chart_design, 
+                    (updated.published_at IS DISTINCT FROM charts.published_at) AS is_first_publish,
+                    chart_author || '#' || accounts.sonolus_handle AS author_full
+                FROM charts
+                JOIN updated ON charts.id = updated.id
+                JOIN accounts ON charts.author = accounts.sonolus_id;
             """,
             status,
             chart_id,
@@ -586,16 +596,26 @@ def update_status(
         return SelectQuery(
             ChartDBResponse,
             """
-                UPDATE charts
-                SET 
-                    status = $1::chart_status, 
-                    updated_at = CURRENT_TIMESTAMP,
-                    published_at = CASE 
-                        WHEN $1::chart_status = 'PUBLIC' AND published_at IS NULL THEN CURRENT_TIMESTAMP
-                        ELSE published_at
-                    END
-                WHERE id = $2
-                RETURNING charts.*, chart_author AS chart_design;
+                WITH updated AS (
+                    UPDATE charts
+                    SET 
+                        status = $1::chart_status, 
+                        updated_at = CURRENT_TIMESTAMP,
+                        published_at = CASE 
+                            WHEN $1::chart_status = 'PUBLIC' AND published_at IS NULL THEN CURRENT_TIMESTAMP
+                            ELSE published_at
+                        END
+                    WHERE id = $2
+                    RETURNING id, published_at, status
+                )
+                SELECT 
+                    charts.*, 
+                    chart_author AS chart_design, 
+                    (updated.published_at IS DISTINCT FROM charts.published_at) AS is_first_publish,
+                    chart_author || '#' || accounts.sonolus_handle AS author_full
+                FROM charts
+                JOIN updated ON charts.id = updated.id
+                JOIN accounts ON charts.author = accounts.sonolus_id;
             """,
             status,
             chart_id,
