@@ -48,7 +48,7 @@ async def main(
                     )
                     wembeds = [
                         WebhookEmbed()
-                        .set_description("# 🏆 新着 StaffPick! / New Staff Pick!")
+                        .set_description("## 🏆 新着 StaffPick! / New Staff Pick!")
                         .set_color("PURPLE")
                     ]
                     wembed = (

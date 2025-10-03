@@ -83,7 +83,7 @@ async def main(
                 wembeds = [
                     WebhookEmbed()
                     .set_description(
-                        "# 創作譜面が公開されました / New Chart Published!"
+                        "## 創作譜面が公開されました / New Chart Published!"
                     )
                     .set_color("PURPLE")
                 ]
