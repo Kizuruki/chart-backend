@@ -46,12 +46,16 @@ async def main(
                         app.config["discord"]["avatar-url"],
                         app.config["discord"]["username"],
                     )
-                    wembeds = [WebhookEmbed()]
+                    wembeds = [
+                        WebhookEmbed()
+                        .set_description("# 🏆 新着 StaffPick! / New Staff Pick!")
+                        .set_color("PURPLE")
+                    ]
                     wembed = (
                         WebhookEmbed()
-                        .set_title("🏆 新着 StaffPick! / New Staff Pick!")
+                        .set_title(sanitize_md(result.title))
                         .set_description(
-                            f"**{sanitize_md(result.title)}**\n- *{sanitize_md(result.artists)}*\n譜面作者 / Charted by: `{sanitize_md(result.author_full)}`\n\n今すぐプレイ！ / Play it now!\n{url_creator(app.config['server']['sonolus-server-url'], 'levels', app.config['server']['sonolus-server-chart-prefix'] + result.id, as_sonolus_open=True)}"
+                            f"- *{sanitize_md(result.artists)}*\n譜面作者 / Charted by: `{sanitize_md(result.author_full)}`\n\n今すぐプレイ！ / Play it now!\n{url_creator(app.config['server']['sonolus-server-url'], 'levels', app.config['server']['sonolus-server-chart-prefix'] + result.id, as_sonolus_open=True)}"
                         )
                         .set_timestamp(True)
                         .set_thumbnail(
