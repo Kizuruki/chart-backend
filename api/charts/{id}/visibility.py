@@ -51,7 +51,7 @@ async def main(
                     WebhookEmbed()
                     .set_title("Chart visibility change")
                     .set_description(
-                        f"The chart `{sanitize_md(result.title)}` (`{sanitize_md(result.author_full)}`) was changed to `{data.status}`.\n\n{url_creator(app.config['server']['sonolus-server-url'], 'levels', app.config['server']['sonolus-server-chart-prefix'] + result.id, as_sonolus_open=True)}"
+                        f"The chart `{sanitize_md(result.title)}` (`{sanitize_md(result.author_full)}`) was changed to `{data.status}` from `{result.status}`.\n\n{url_creator(app.config['server']['sonolus-server-url'], 'levels', app.config['server']['sonolus-server-chart-prefix'] + result.id, as_sonolus_open=True)}"
                     )
                     .set_timestamp(True)
                     .set_thumbnail(
@@ -65,7 +65,7 @@ async def main(
                     .set_color(
                         "RED"
                         if data.status == "PRIVATE"
-                        else "YELLOW" if data.status == "UNLISTED" else "GREEN"
+                        else "ORANGE" if data.status == "UNLISTED" else "GREEN"
                     )
                 )
                 wmsg.add_embed(wembed)
@@ -81,11 +81,11 @@ async def main(
                     app.config["discord"]["username"],
                 )
                 wembeds = [WebhookEmbed()]
-                wembed_jp = (
+                wembed = (
                     WebhookEmbed()
-                    .set_title("創作譜面が公開されました")
+                    .set_title("創作譜面が公開されました / New Chart Published!")
                     .set_description(
-                        f"**{sanitize_md(result.title)}**\n*{sanitize_md(result.artists)}*\n譜面作者: `{sanitize_md(result.author_full)}`\n\n今すぐプレイ！\n{url_creator(app.config['server']['sonolus-server-url'], 'levels', app.config['server']['sonolus-server-chart-prefix'] + result.id, as_sonolus_open=True)}"
+                        f"**{sanitize_md(result.title)}**\n- *{sanitize_md(result.artists)}*\n譜面作者 / Charted by: `{sanitize_md(result.author_full)}`\n\n今すぐプレイ！ / Play it now!\n{url_creator(app.config['server']['sonolus-server-url'], 'levels', app.config['server']['sonolus-server-chart-prefix'] + result.id, as_sonolus_open=True)}"
                     )
                     .set_timestamp(True)
                     .set_thumbnail(
@@ -96,31 +96,11 @@ async def main(
                             result.jacket_file_hash,
                         )
                     )
-                    .set_color("GREEN")
+                    .set_color("BLUE")
                 )
-                wembeds.append(wembed_jp)
-                wembed_en = (
-                    WebhookEmbed()
-                    .set_title("New Chart Published!")
-                    .set_description(
-                        f"**{sanitize_md(result.title)}**\n*{sanitize_md(result.artists)}*\nCharted by: `{sanitize_md(result.author_full)}`\n\nPlay it now!\n{url_creator(app.config['server']['sonolus-server-url'], 'levels', app.config['server']['sonolus-server-chart-prefix'] + result.id, as_sonolus_open=True)}"
-                    )
-                    .set_timestamp(True)
-                    .set_thumbnail(
-                        url_creator(
-                            app.s3_asset_base_url,
-                            result.author,
-                            result.id,
-                            result.jacket_file_hash,
-                        )
-                    )
-                    .set_color("GREEN")
-                )
-                wembeds.append(wembed_en)
-
+                wembeds.append(wembed)
                 for embed in wembeds:
                     wmsg.add_embed(embed)
-
                 await wmsg.send()
             if user.mod:
                 d["mod"] = True

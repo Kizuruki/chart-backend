@@ -538,7 +538,7 @@ def set_staff_pick(chart_id: str, value: bool) -> SelectQuery[ChartDBResponse]:
         SELECT 
             charts.*, 
             charts.chart_author AS chart_design,
-            accounts.sonolus_handle || '#' || charts.chart_author AS author_full
+            charts.chart_author || '#' || accounts.sonolus_handle AS author_full
         FROM charts
         JOIN updated ON charts.id = updated.id
         JOIN accounts ON charts.author = accounts.sonolus_id;
