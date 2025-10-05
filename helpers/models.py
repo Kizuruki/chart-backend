@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import List, Literal, Optional
 from datetime import datetime
 from typing import Any, Union
+from decimal import Decimal
 
 
 class ServiceUserProfile(BaseModel):
@@ -182,10 +183,24 @@ class ChartDBResponse(BaseModel):
 
     @model_validator(mode="before")
     def coerce_rating(cls, values):
-        # Coerce `rating` to int if it's a float with `.0`
         rating = values.get("rating")
-        if isinstance(rating, float) and rating.is_integer():
-            values["rating"] = int(rating)  # Force it to an int
+
+        if isinstance(rating, Decimal):
+            values["rating"] = float(
+                rating.quantize(Decimal("0.0001"), rounding="ROUND_DOWN")
+            )
+            rating = values["rating"]
+
+        if isinstance(rating, float):
+            if rating.is_integer():
+                values["rating"] = int(rating)
+            else:
+                rating = Decimal(rating).quantize(
+                    Decimal("0.0001"), rounding="ROUND_DOWN"
+                )
+                values["rating"] = float(rating)
+        elif isinstance(rating, int):
+            values["rating"] = int(rating)
         return values
 
 
