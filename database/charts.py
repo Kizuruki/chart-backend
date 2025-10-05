@@ -134,11 +134,13 @@ def get_chart_list(
         conditions.append(f"c.staff_pick = ${len(params)}::BOOL")
 
     if min_rating is not None:
+        min_rating -= 1
         params.append(min_rating)
-        conditions.append(f"c.rating >= ${len(params)}")
+        conditions.append(f"c.rating > ${len(params)}")
     if max_rating is not None:
+        max_rating += 1
         params.append(max_rating)
-        conditions.append(f"c.rating <= ${len(params)}")
+        conditions.append(f"c.rating < ${len(params)}")
 
     if tags:
         params.append(tags)
