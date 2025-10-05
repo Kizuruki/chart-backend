@@ -41,12 +41,10 @@ async def main(
         raise HTTPException(
             status=status.HTTP_400_BAD_REQUEST, detail="Length limits exceeded"
         )
-    elif (
-        "." in str(abs(data.constant))
-        and len(str(abs(data.constant)).split(".")[1]) > 4
-    ):
+    dec_str = str(data.constant.normalize())
+    if "." in dec_str and len(dec_str.split(".")[1]) > 4:
         raise HTTPException(
-            status=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="More than 4 decimal places are not allowed",
         )
     query = charts.update_metadata(

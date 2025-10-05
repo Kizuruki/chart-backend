@@ -1,4 +1,5 @@
 from typing import List, Optional, Literal, Union
+from decimal import Decimal
 
 from database.query import ExecutableQuery, SelectQuery
 from helpers.models import (
@@ -386,7 +387,7 @@ def delete_chart(
 def update_metadata(
     chart_id: str,
     chart_author: Optional[str] = None,
-    rating: Optional[Union[int, float]] = None,
+    rating: Optional[Union[int, float, Decimal]] = None,
     description: Optional[str] = None,
     title: Optional[str] = None,
     artists: Optional[str] = None,

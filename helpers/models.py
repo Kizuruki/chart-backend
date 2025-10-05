@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import List, Literal, Optional
 from datetime import datetime
 from typing import Any, Union
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 
 class ServiceUserProfile(BaseModel):
@@ -153,10 +153,8 @@ class Count(BaseModel):
 
 
 class ChartDBResponse(BaseModel):
-    # DO NOT INHERIT FROM CHART API BASEMODEL
-    # THE DB RESPONSE IS DIFFERENT!
     id: str
-    rating: Union[int, float]
+    rating: Union[int, Decimal]
     author: str  # author sonolus id
     title: str
     staff_pick: bool
@@ -177,30 +175,31 @@ class ChartDBResponse(BaseModel):
     published_at: Optional[datetime] = None
     updated_at: datetime
     author_full: Optional[str] = None
-    chart_design: str  # author_full without the handle
+    chart_design: str
+    is_first_publish: Optional[bool] = None  # only returned on update_status
 
-    is_first_publish: Optional[bool] = None  # only returned on update_status.
+    model_config = {"json_encoders": {Decimal: float}}
 
     @model_validator(mode="before")
     def coerce_rating(cls, values):
         rating = values.get("rating")
 
-        if isinstance(rating, Decimal):
-            values["rating"] = float(
-                rating.quantize(Decimal("0.0001"), rounding="ROUND_DOWN")
-            )
-            rating = values["rating"]
+        if rating is None:
+            return values
 
         if isinstance(rating, float):
-            if rating.is_integer():
-                values["rating"] = int(rating)
-            else:
-                rating = Decimal(rating).quantize(
-                    Decimal("0.0001"), rounding="ROUND_DOWN"
-                )
-                values["rating"] = float(rating)
+            rating = Decimal(str(rating))
+
+        if isinstance(rating, Decimal):
+            rating = rating.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
+            # Convert .0 to int
+            if rating == rating.to_integral():
+                rating = int(rating)
+
         elif isinstance(rating, int):
-            values["rating"] = int(rating)
+            rating = int(rating)
+
+        values["rating"] = rating
         return values
 
 
@@ -250,7 +249,7 @@ class DBID(BaseModel):
 
 
 class ChartConstantData(BaseModel):
-    constant: float
+    constant: Decimal
 
 
 class Notification(BaseModel):
