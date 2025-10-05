@@ -384,7 +384,7 @@ def delete_chart(
 def update_metadata(
     chart_id: str,
     chart_author: Optional[str] = None,
-    rating: Optional[int] = None,
+    rating: Optional[Union[int, float]] = None,
     description: Optional[str] = None,
     title: Optional[str] = None,
     artists: Optional[str] = None,
@@ -403,6 +403,9 @@ def update_metadata(
         ]
     ):
         raise ValueError("At least one field must be updated.")
+
+    if type(rating) == int:
+        rating = float(rating)
 
     set_fields = []
     args = []

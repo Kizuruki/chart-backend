@@ -1,8 +1,8 @@
 import json
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import List, Literal, Optional
 from datetime import datetime
-from typing import Any
+from typing import Any, Union
 
 
 class ServiceUserProfile(BaseModel):
@@ -155,7 +155,7 @@ class ChartDBResponse(BaseModel):
     # DO NOT INHERIT FROM CHART API BASEMODEL
     # THE DB RESPONSE IS DIFFERENT!
     id: str
-    rating: int
+    rating: Union[int, float]
     author: str  # author sonolus id
     title: str
     staff_pick: bool
@@ -179,6 +179,14 @@ class ChartDBResponse(BaseModel):
     chart_design: str  # author_full without the handle
 
     is_first_publish: Optional[bool] = None  # only returned on update_status.
+
+    @model_validator(mode="before")
+    def coerce_rating(cls, values):
+        # Coerce `rating` to int if it's a float with `.0`
+        rating = values.get("rating")
+        if isinstance(rating, float) and rating.is_integer():
+            values["rating"] = int(rating)  # Force it to an int
+        return values
 
 
 class ChartDBResponseLiked(ChartDBResponse):
@@ -224,6 +232,10 @@ class ExternalLoginKeyData(BaseModel):
 
 class DBID(BaseModel):
     id: str
+
+
+class ChartConstantData(BaseModel):
+    constant: float
 
 
 class Notification(BaseModel):

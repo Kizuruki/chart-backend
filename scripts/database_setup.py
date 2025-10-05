@@ -61,7 +61,7 @@ END $$;""",
 );""",
         """CREATE TABLE IF NOT EXISTS charts (
     id TEXT PRIMARY KEY,
-    rating INT DEFAULT 1,
+    rating DECIMAL DEFAULT 1,
     staff_pick BOOL DEFAULT FALSE,
     sponsored_until TIMESTAMP DEFAULT NULL,
     author TEXT REFERENCES accounts(sonolus_id) ON DELETE CASCADE,

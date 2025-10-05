@@ -26,7 +26,7 @@ router = APIRouter()
 MAX_FILE_SIZES = {
     "jacket": int(7.5 * 1024 * 1024),  # 7.5 MB
     "chart": 20 * 1024 * 1024,  # 20 MB
-    "audio": 30 * 1024 * 1024,  # 30 MB
+    "audio": 50 * 1024 * 1024,  # 50 MB
     "preview": 5 * 1024 * 1024,  # 5 MB
     "background": 15 * 1024 * 1024,  # 15 MB
 }
@@ -58,6 +58,8 @@ async def main(
         or (len(data.author) > 50)
         or (data.tags and any(len(tag) > 10 for tag in data.tags))
         or (data.tags and len(data.tags) > 3)
+        or (data.rating > 999)
+        or (data.rating < -999)
     ):
         raise HTTPException(
             status=status.HTTP_400_BAD_REQUEST, detail="Length limits exceeded"
