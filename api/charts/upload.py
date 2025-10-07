@@ -166,7 +166,7 @@ async def main(
         }
     )
 
-    valid, sus, usc, leveldata, compressed, _ = sonolus_converters.detect(
+    valid, sus, usc, leveldata, compressed, ld_type = sonolus_converters.detect(
         (await chart_file.read())
     )
     await chart_file.seek(0)
@@ -190,6 +190,11 @@ async def main(
             )
             sonolus_converters.next_sekai.export(converted, score)
         elif leveldata:
+            if ld_type != "nextsekai":
+                raise HTTPException(
+                    status=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Incorrect LevelData: {ld_type}",
+                )
             if not compressed:
                 compressed_data = io.BytesIO()
                 with gzip.GzipFile(
