@@ -8,7 +8,7 @@ from PIL import Image
 
 def generate_backgrounds_resize_jacket(jacket_bytes: bytes):
     jacket_pil_image = Image.open(io.BytesIO(jacket_bytes))
-    jacket_pil_image = jacket_pil_image.resize((1000, 1000)).convert("RGBA")
+    jacket_pil_image = jacket_pil_image.resize((600, 600)).convert("RGBA")
     jacket_buffer = io.BytesIO()
     jacket_pil_image.save(jacket_buffer, format="PNG")
     jacket_bytes = jacket_buffer.getvalue()
